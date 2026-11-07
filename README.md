@@ -1,12 +1,12 @@
 <div align="center">
 
-# shadowrocket-lazy-dns
+# shadowrocket-lazy-dns-split
 
 **懒人配置 + DNS 国内外分流 · 自动同步版**
 
 国内直连解析 · 国外 VPS 远程解析 · 防 DNS 泄露
 
-[![Sync status](https://github.com/johnnyliat/shadowrocket-lazy-dns/actions/workflows/sync.yml/badge.svg)](https://github.com/johnnyliat/shadowrocket-lazy-dns/actions)
+[![Sync status](https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml/badge.svg)](https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions)
 
 </div>
 
@@ -43,14 +43,14 @@
 | 线路 A · jsDelivr（推荐，有缓存） | 线路 B · Raw（无缓存，即时更新） |
 | :---: | :---: |
 | <img src="qrcode.png" width="200" alt="版本一 jsDelivr 二维码"> | <img src="qrcode-raw.png" width="200" alt="版本一 Raw 二维码"> |
-| `https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns@main/lazy-dns.conf` | `https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns/main/lazy-dns.conf` |
+| `https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf` | `https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf` |
 
 ### 版本二 · 懒人配置 + DNS 国内外分流 + 去广告
 
 | 线路 A · jsDelivr（推荐，有缓存） | 线路 B · Raw（无缓存，即时更新） |
 | :---: | :---: |
 | <img src="qrcode-ad.png" width="200" alt="版本二 jsDelivr 二维码"> | <img src="qrcode-ad-raw.png" width="200" alt="版本二 Raw 二维码"> |
-| `https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns@main/lazy-dns-ad.conf` | `https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns/main/lazy-dns-ad.conf` |
+| `https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf` | `https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf` |
 
 导入后，全局路由选「配置」；在「设置 → 更新」里给配置开启自动更新，之后就不用再管了。
 
