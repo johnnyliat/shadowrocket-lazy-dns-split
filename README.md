@@ -71,6 +71,16 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 
 需要 Shadowrocket 2.2.92 以上版本，配置里用到的 `direct-dns-server` 在低版本上不生效。
 
+## 导入后：测一下 DNS 泄露
+
+连通之后，打开下面三个站测一次：
+
+- [BrowserLeaks 的 DNS 检测](https://browserleaks.com/dns)
+- [ipleak.net](https://ipleak.net/)
+- [DNS Leak Test](https://www.dnsleaktest.com/)，建议用 Extended test
+
+结果里列出的解析服务器应该是服务器端的上游（一般是 Cloudflare），不应该出现阿里、腾讯或者本地运营商。为什么显示的是 Cloudflare、哪些域名是例外，分别在后面「DNS 的分工」和「例外」里说明。
+
 ## DNS 的分工
 
 | 场景 | 解析方式 |
