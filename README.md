@@ -54,7 +54,6 @@
 
 导入后，全局路由选「配置」；在「设置 → 更新」里给配置开启自动更新，之后就不用再管了。
 
-用 iPhone 打开本页的话，也可以点一键导入（走 jsDelivr 线路）：[版本一一键导入](shadowrocket://install-config?url=https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fjohnnyliat%2Fshadowrocket-lazy-dns-split%40main%2Flazy-dns.conf) · [版本二一键导入](shadowrocket://install-config?url=https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fjohnnyliat%2Fshadowrocket-lazy-dns-split%40main%2Flazy-dns-ad.conf)，点击后会直接跳到 Shadowrocket 完成导入。
 
 ---
 
