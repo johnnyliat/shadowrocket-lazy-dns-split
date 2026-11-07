@@ -34,8 +34,10 @@
 
 | 线路 A · jsDelivr（CDN，国内可直达） | 线路 B · GitHub Raw（无缓存，即时更新） |
 | :---: | :---: |
-| ![jsDelivr 二维码](qrcode.png) | ![Raw 二维码](qrcode-raw.png) |
-| `https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf` | `https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf` |
+| <img src="qrcode.png" width="190" alt="jsDelivr 二维码"> | <img src="qrcode-raw.png" width="190" alt="Raw 二维码"> |
+
+线路 A：`https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf`
+线路 B：`https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf`
 
 ### 版本二：懒人配置 + DNS 国内外分流 + 去广告
 
@@ -43,8 +45,10 @@
 
 | 线路 A · jsDelivr（CDN，国内可直达） | 线路 B · GitHub Raw（无缓存，即时更新） |
 | :---: | :---: |
-| ![jsDelivr 二维码](qrcode-ad.png) | ![Raw 二维码](qrcode-ad-raw.png) |
-| `https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf` | `https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf` |
+| <img src="qrcode-ad.png" width="190" alt="jsDelivr 二维码"> | <img src="qrcode-ad-raw.png" width="190" alt="Raw 二维码"> |
+
+线路 A：`https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf`
+线路 B：`https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf`
 
 两条线路内容一致，以仓库当前提交为准。jsDelivr 每次同步后会主动刷新并逐文件校验哈希；Raw 直接读仓库，没有缓存延迟，但国内网络访问可能需要代理。
 
