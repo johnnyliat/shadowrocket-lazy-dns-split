@@ -73,18 +73,15 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 
 ## 导入后：测一下 DNS 泄露
 
-导入配置、并在 Shadowrocket 里切换到这份配置文件之后，打开下面三个网站测一遍，三个都测，结果互相印证才可靠。原理不复杂：这些页面里藏着谁都没访问过的随机子域名，一打开，手机就必须现场查它的 IP，网站趁机记下到底是哪台 DNS 服务器在回答。
+导入配置、并在 Shadowrocket 里切换到这份配置文件之后，把下面三个网站都测一遍，结果互相印证。原理：页面里藏着没人访问过的随机子域名，一打开，手机必须现场查询它的 IP，网站借此记下真正执行查询的 DNS 服务器。
 
-**[BrowserLeaks](https://browserleaks.com/dns)**：
-信息最全。直接列出执行解析的 DNS 服务器地址、所属运营商和所在国家，解析发生在哪里看得很清楚。
+| 网站 | 网址 | 说明 |
+| --- | --- | --- |
+| [BrowserLeaks](https://browserleaks.com/dns) | https://browserleaks.com/dns | 信息最全，列出 DNS 服务器的地址、运营商和国家 |
+| [ipleak.net](https://ipleak.net) | https://ipleak.net | 同页显示出口 IP 与 DNS 服务器，方便对照国家 |
+| [DNS Leak Test](https://www.dnsleaktest.com) | https://www.dnsleaktest.com | 选 Extended test，探针更多，查得更细 |
 
-**[ipleak.net](https://ipleak.net)**：
-一页同时显示出口 IP 和 DNS 服务器。出口在哪个国家、解析在哪个国家，并排对照最方便。
-
-**[DNS Leak Test](https://www.dnsleaktest.com/)**：
-老牌检测站，选 Extended test，探针更多、查得更细，适合放在最后做确认。
-
-**通过标准**：三个站列出的 DNS 服务器应当全部位于出口 IP 所在的国家（一般显示为 Cloudflare），不应出现其他区域的，尤其是阿里、腾讯和本地运营商。三个站结果一致，就是没有泄露。个别 Apple 域名走系统 DNS 是配置里有意留的例外，检测时遇到不用管，细节见后面「例外」一节。
+**通过标准**：三个站列出的 DNS 服务器应全部位于出口 IP 所在的国家（一般显示为 Cloudflare），不应出现其他区域的，尤其是阿里、腾讯和本地运营商。三个站结果一致，就是没有泄露。个别 Apple 域名走系统 DNS 是有意保留的例外，细节见后面「例外」一节。
 
 ## DNS 的分工
 
