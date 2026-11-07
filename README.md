@@ -54,6 +54,8 @@
 
 导入后，全局路由选「配置」；在「设置 → 更新」里给配置开启自动更新，之后就不用再管了。
 
+用 iPhone 打开本页的话，也可以点一键导入（走 jsDelivr 线路）：[版本一一键导入](shadowrocket://install-config?url=https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fjohnnyliat%2Fshadowrocket-lazy-dns-split%40main%2Flazy-dns.conf) · [版本二一键导入](shadowrocket://install-config?url=https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fjohnnyliat%2Fshadowrocket-lazy-dns-split%40main%2Flazy-dns-ad.conf)，点击后会直接跳到 Shadowrocket 完成导入。
+
 ---
 
 ## 分流与防泄露原理
@@ -68,7 +70,7 @@
 
 ## 自动更新
 
-每天北京时间约 09:07，GitHub Actions 会下载上游的 `lazy.conf` 和 `sr_ad_only.conf`，用仓库里的两个构建脚本重新生成两个成品配置。脚本对每一处修改都做了校验，生成后还会自检一遍条数和关键参数，对不上就直接报错停下来，不会把有问题的配置发上来。所以这里的成品，始终是「上游最新规则 + 这套 DNS 设计」的组合。
+每天北京时间约 09:07，GitHub Actions 会下载上游的 `lazy.conf` 和 `sr_ad_only.conf`，用仓库里的两个构建脚本重新生成两个成品配置。脚本对每一处修改都做了校验，生成后还会自检一遍条数和关键参数，对不上就直接报错停下来，不会把有问题的配置发上来。所以这里的成品，始终是「上游最新规则 + 这套 DNS 设计」的组合。每次同步后工作流还会顺带刷新一次 jsDelivr 的缓存，所以 jsDelivr 线路的更新延迟基本可以忽略。
 
 ## 常见问题
 
