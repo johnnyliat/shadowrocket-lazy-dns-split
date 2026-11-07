@@ -40,6 +40,9 @@ jobs:
       - name: Build ad version (DNS patch + embed ad rules)
         run: python3 patch_ad.py upstream-lazy.conf upstream-sr_ad_only.conf lazy-dns-ad.conf
 
+      - name: Verify no-resolve coverage of all rules (leak guard)
+        run: python3 check_no_resolve.py lazy-dns.conf lazy-dns-ad.conf
+
       - name: Purge jsDelivr cache
         if: always()
         run: |
