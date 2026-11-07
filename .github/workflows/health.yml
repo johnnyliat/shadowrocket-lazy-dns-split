@@ -1,0 +1,44 @@
+name: Weekly rule-set health check
+
+# 每周一 UTC 03:17（北京时间 11:17）检查上游与全部远程规则集是否可用；也可手动触发
+# 名单不写死：每次运行时从最新 lazy.conf 现场提取 RULE-SET 链接，上游增删自动跟随
+# 本工作流不检出代码、不写仓库，纯网络探活，所以不需要任何第三方 Action
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check upstream files and rule-sets
+        run: |
+          set -u
+          fail=0
+          check() {
+            url="$1"
+            code=$(curl -sSL -o /tmp/body -w "%{http_code}" --max-time 30 --retry 2 "$url") || code="000"
+            size=$(wc -c < /tmp/body 2>/dev/null || echo 0)
+            if [ "$code" != "200" ] || [ "$size" -lt 10 ]; then
+              echo "FAIL [$code, ${size}B] $url"
+              fail=1
+            else
+              echo "OK   [$code, ${size}B] $url"
+            fi
+          }
+          check "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
+          check "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_ad_only.conf"
+          curl -fsSL --retry 3 -o /tmp/lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
+          grep -oE "RULE-SET,https://[^,]+" /tmp/lazy.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/urls.txt
+          echo "Rule-sets found: $(wc -l < /tmp/urls.txt)"
+          while IFS= read -r u; do check "$u"; done < /tmp/urls.txt
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Some upstream/rule-set URLs are unavailable (see FAIL lines above)."
+            exit 1
+          fi
+          echo "All URLs healthy."
