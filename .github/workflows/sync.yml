@@ -17,7 +17,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -43,15 +43,6 @@ jobs:
       - name: Verify no-resolve coverage of all rules (leak guard)
         run: python3 check_no_resolve.py lazy-dns.conf lazy-dns-ad.conf
 
-      - name: Purge jsDelivr cache
-        if: always()
-        run: |
-          curl -fsSL "https://purge.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf" || true
-          curl -fsSL "https://purge.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf" || true
-          for n in Apple China Global WeChat; do
-            curl -fsSL "https://purge.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/rules/$n.list" || true
-          done
-
       - name: Commit if changed
         run: |
           rm -rf upstream-lazy.conf upstream-sr_ad_only.conf qx
@@ -64,3 +55,23 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "sync: upstream lazy.conf (+ sr_ad_only) + DNS split patch"
           git push
+
+      - name: Purge jsDelivr cache and verify CDN matches repo
+        if: always()
+        run: |
+          REPO="johnnyliat/shadowrocket-lazy-dns-split@main"
+          FILES="lazy-dns.conf lazy-dns-ad.conf rules/Apple.list rules/China.list rules/Global.list rules/WeChat.list"
+          ok=0
+          for attempt in 1 2 3; do
+            for f in $FILES; do curl -fsSL "https://purge.jsdelivr.net/gh/$REPO/$f" > /dev/null || true; done
+            sleep 30
+            ok=1
+            for f in $FILES; do
+              want=$(sha256sum "$f" | cut -d' ' -f1)
+              got=$(curl -fsSL "https://cdn.jsdelivr.net/gh/$REPO/$f" | sha256sum | cut -d' ' -f1)
+              if [ "$want" != "$got" ]; then echo "STALE: $f (attempt $attempt)"; ok=0; fi
+            done
+            [ "$ok" = "1" ] && break
+          done
+          if [ "$ok" != "1" ]; then echo "::error::jsDelivr content does not match repo after retries"; exit 1; fi
+          echo "jsDelivr cache in sync with repo."
