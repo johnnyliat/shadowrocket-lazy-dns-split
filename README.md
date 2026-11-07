@@ -73,13 +73,13 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 
 ## 导入后：测一下 DNS 泄露
 
-连通之后，打开下面三个站测一次：
+连通之后，建议把下面三个站都测一遍，互相印证。原理是相同的：页面里埋一组随机子域名，强制浏览器发起解析，再看真正执行查询的是哪些 DNS 服务器。
 
-- [BrowserLeaks 的 DNS 检测](https://browserleaks.com/dns)
-- [ipleak.net](https://ipleak.net/)
-- [DNS Leak Test](https://www.dnsleaktest.com/)，建议用 Extended test
+1. **[BrowserLeaks](https://browserleaks.com/dns)**：信息最全，直接列出执行解析的 DNS 服务器地址、所属运营商和国家。
+2. **[ipleak.net](https://ipleak.net)**：一页同时显示出口 IP 和 DNS 服务器，两边对照起来方便。
+3. **[DNS Leak Test](https://www.dnsleaktest.com/)**：选 Extended test，探针更多，查得更细。
 
-结果里列出的解析服务器应该是服务器端的上游（一般是 Cloudflare），不应该出现阿里、腾讯或者本地运营商。为什么显示的是 Cloudflare、哪些域名是例外，分别在后面「DNS 的分工」和「例外」里说明。
+**通过标准**：三个站列出的 DNS 服务器应当全部位于出口 IP 所在的国家（一般显示为 Cloudflare），不应出现其他区域的，尤其是阿里、腾讯和本地运营商。三个站结果一致，就是没有泄露。个别 Apple 域名走系统 DNS 是配置里有意留的例外，检测时遇到不用管，细节见后面「例外」一节。
 
 ## DNS 的分工
 
