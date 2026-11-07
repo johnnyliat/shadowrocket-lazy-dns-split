@@ -20,8 +20,8 @@
 
 先在首页添加并选中你自己的节点（本配置不含节点），再从下面任一地址导入配置，全局路由选「配置」：
 
-- jsDelivr（国内可直达，有数小时缓存）：`https://cdn.jsdelivr.net/gh/YOUR_USERNAME/shadowrocket-lazy-dns@main/lazy-dns.conf`
-- Raw（无缓存，更新最及时）：`https://raw.githubusercontent.com/YOUR_USERNAME/shadowrocket-lazy-dns/main/lazy-dns.conf`
+- jsDelivr（国内可直达，有数小时缓存）：`https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns@main/lazy-dns.conf`
+- Raw（无缓存，更新最及时）：`https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns/main/lazy-dns.conf`
 
 导入后可在「设置 → 更新」里为该配置开启自动更新。
 
