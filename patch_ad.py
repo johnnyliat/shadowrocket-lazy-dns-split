@@ -147,7 +147,8 @@ def main(lazy_path, ad_path, out_path):
         "#       DNS 仅改机制（以 [DNS分流补丁] 注释标出），其余与上游逐字一致。\n"
         "#   国内: dns-server / direct-dns-server / proxy-dns-server = 阿里 DoH + 腾讯 DoH（加密）\n"
         "#   国外: 无本地解析 —— GEOIP 加 no-resolve、FINAL,PROXY,force-remote-dns 交节点远端解析；\n"
-        "#         删除 fallback-dns-server 并设 dns-fallback-system = false（fail-closed）；ipv6 = false\n"
+        "#         删除 fallback-dns-server 并设 dns-fallback-system = false（fail-closed）；ipv6 = false；\n"
+        "#         注: [Host] 中 Apple/iCloud 的 server:system 为上游有意的兼容设计，原样保留。\n"
         "# 本文件由 GitHub Actions 每日自动同步两个上游并重新生成。\n"
         "# ============================================================\n"
     )
