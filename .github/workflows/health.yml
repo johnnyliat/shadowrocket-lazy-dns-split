@@ -1,6 +1,6 @@
 name: Weekly rule-set health check
 
-# 每周一 UTC 03:17（北京时间 11:17）检查上游与全部远程规则集是否可用；也可手动触发
+# 每周一 UTC 03:17（北京时间 11:17）检查上游、全部远程规则集与自家 CDN 分发面是否可用；也可手动触发
 # 名单不写死：每次运行时从最新 lazy.conf 现场提取 RULE-SET 链接，上游增删自动跟随
 # 本工作流不检出代码、不写仓库，纯网络探活，所以不需要任何第三方 Action
 on:
@@ -37,6 +37,12 @@ jobs:
           grep -oE "RULE-SET,https://[^,]+" /tmp/lazy.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/urls.txt
           echo "Rule-sets found: $(wc -l < /tmp/urls.txt)"
           while IFS= read -r u; do check "$u"; done < /tmp/urls.txt
+          echo "First-party CDN surfaces:"
+          check "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf"
+          check "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf"
+          for n in Apple China Global WeChat; do
+            check "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/rules/$n.list"
+          done
           if [ "$fail" -ne 0 ]; then
             echo "::error::Some upstream/rule-set URLs are unavailable (see FAIL lines above)."
             exit 1
