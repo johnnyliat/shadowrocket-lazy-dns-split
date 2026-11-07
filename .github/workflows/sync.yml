@@ -1,6 +1,7 @@
 name: Sync lazy.conf + DNS patch
 
 # 每天 UTC 01:07（北京时间 09:07）自动同步；也可在 Actions 页面手动触发
+# 一次运行同时生成两个成品：纯净版 lazy-dns.conf 与去广告版 lazy-dns-ad.conf
 on:
   schedule:
     - cron: '7 1 * * *'
@@ -20,21 +21,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download upstream lazy.conf
-        run: curl -fsSL --retry 3 -o upstream-lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
+      - name: Download upstream files
+        run: |
+          curl -fsSL --retry 3 -o upstream-lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
+          curl -fsSL --retry 3 -o upstream-sr_ad_only.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_ad_only.conf"
 
-      - name: Apply DNS split patch
+      - name: Apply DNS split patch (pure version)
         run: python3 patch.py upstream-lazy.conf lazy-dns.conf
+
+      - name: Build ad version (DNS patch + embed ad rules)
+        run: python3 patch_ad.py upstream-lazy.conf upstream-sr_ad_only.conf lazy-dns-ad.conf
 
       - name: Commit if changed
         run: |
-          rm -f upstream-lazy.conf
-          git add lazy-dns.conf
+          rm -f upstream-lazy.conf upstream-sr_ad_only.conf
+          git add lazy-dns.conf lazy-dns-ad.conf
           if git diff --cached --quiet; then
             echo "No changes from upstream."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "sync: upstream lazy.conf + DNS split patch"
+          git commit -m "sync: upstream lazy.conf (+ sr_ad_only) + DNS split patch"
           git push
