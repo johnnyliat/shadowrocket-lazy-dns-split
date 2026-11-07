@@ -19,6 +19,14 @@ import re
 import sys
 
 DUAL_DOH = "https://dns.alidns.com/dns-query,https://doh.pub/dns-query"
+
+QX_LISTS = {
+    "Apple": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/Apple/Apple.list",
+    "China": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/China/China.list",
+    "Global": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/Global/Global.list",
+    "WeChat": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/WeChat/WeChat.list",
+}
+SELF_HOSTED = "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/rules/{name}.list"
 AD_LINE = re.compile(r"^(DOMAIN-SUFFIX|IP-CIDR),([^,]+),Reject$")
 
 def fail(msg):
@@ -100,9 +108,24 @@ def main(lazy_path, ad_path, out_path):
             done.add("final")
             continue
 
+        if section == "[Rule]" and s.startswith("RULE-SET,"):
+            hit = None
+            for name, qx_url in QX_LISTS.items():
+                if qx_url in s:
+                    hit = name
+                    break
+            if hit:
+                out.append(f"# [DNS分流补丁] {hit} 表原为 QuantumultX 格式，其 IP 规则不带 no-resolve，未命中域名会被本地解析一次（泄露面）；改引本仓库自托管镜像 rules/{hit}.list（与上游逐行一致、仅补 no-resolve，每日随上游同步）。")
+                out.append(s.replace(QX_LISTS[hit], SELF_HOSTED.format(name=hit)))
+                done.add(f"ruleset_{hit}")
+            else:
+                out.append(raw)
+            continue
+
         out.append(raw)
 
-    missing = {"dns", "fallback", "ipv6", "geoip", "final", "ad"} - done
+    missing = {"dns", "fallback", "ipv6", "geoip", "final", "ad",
+               "ruleset_Apple", "ruleset_China", "ruleset_Global", "ruleset_WeChat"} - done
     if missing:
         fail(f"锚点缺失，上游格式可能已变化，未完成的步骤: {sorted(missing)}")
 
@@ -129,6 +152,11 @@ def main(lazy_path, ad_path, out_path):
             fail(f"{key} 双 DoH 缺失")
     if "dns-fallback-system = false" not in active or "ipv6 = false" not in active:
         fail("fail-closed / ipv6 行缺失")
+    for name, qx_url in QX_LISTS.items():
+        if any(qx_url in l for l in active):
+            fail(f"{name} 仍在引用 QX 原表")
+        if sum(1 for l in active if SELF_HOSTED.format(name=name) in l) != 1:
+            fail(f"{name} 自托管镜像引用不是恰好一条")
     rejects = [l for l in rule_active if l.endswith(",REJECT") or l.endswith(",REJECT,no-resolve")]
     if len(rejects) != len(ad_rules):
         fail(f"内嵌去广告计数不符: 文件内 {len(rejects)} vs 上游 {len(ad_rules)}")
@@ -148,6 +176,7 @@ def main(lazy_path, ad_path, out_path):
         "#   国内: dns-server / direct-dns-server / proxy-dns-server = 阿里 DoH + 腾讯 DoH（加密）\n"
         "#   国外: 无本地解析 —— GEOIP 加 no-resolve、FINAL,PROXY,force-remote-dns 交节点远端解析；\n"
         "#         删除 fallback-dns-server 并设 dns-fallback-system = false（fail-closed）；ipv6 = false；\n"
+        "#         Apple/China/Global/WeChat 四张表改引自托管镜像 rules/*.list（原 QX 格式 IP 规则无 no-resolve 会触发本地解析；镜像逐行一致、仅补 no-resolve）。\n"
         "#         注: [Host] 中 Apple/iCloud 的 server:system 为上游有意的兼容设计，原样保留。\n"
         "# 本文件由 GitHub Actions 每日自动同步两个上游并重新生成。\n"
         "# ============================================================\n"

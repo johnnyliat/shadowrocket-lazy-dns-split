@@ -83,12 +83,15 @@
 
 **Apple 的 `server:system` 是什么？** 这是上游让 `*.apple.com`、`*.icloud.com` 继续用系统（运营商）DNS 的写法，为的是拿到最准的 Apple 本地 CDN 节点，App Store 和 iCloud 的解析更稳。代价只有一点：这两组域名的查询是明文的，不过它们依然是国内直连、解析到的也是国内 IP。如果更在意这一点，在 Shadowrocket 的「配置 → 主机」里把这两行删掉就可以，删完 Apple 域名会改走上面的国内 DoH。
 
+**为什么有四张规则表放在本仓库（`rules/` 目录）？** 上游引用的 Apple、China、Global、WeChat 四张表是 QuantumultX 格式，它们的 IP 类规则不带 `no-resolve`：域名为了匹配这些 IP 规则，会先被本地解析一次，境外域名因此在国内解析商处留下查询记录（DNS 泄露检测能查到国内 DNS）。同作者的 Shadowrocket 格式同名表又只是骨架版，换用会丢失大量域名规则。所以本仓库每天把这四张表同步一份镜像放在 `rules/`，内容与上游逐行一致、只给 IP 类规则补上 `no-resolve`，配置改引镜像，从源头堵住这次本地解析。
+
 ## 文件说明
 
 | 文件 | 作用 |
 |---|---|
 | `lazy-dns.conf` / `lazy-dns-ad.conf` | 两个成品配置，由 Actions 每天跟着上游自动生成；想调整规则的话，改下面的构建脚本更合适 |
 | `patch.py` / `patch_ad.py` | 两个构建脚本，负责 DNS 补丁（去广告版多一步规则内嵌） |
+| `patch_lists.py` + `rules/*.list` | 四张 QuantumultX 格式规则表的自托管镜像构建：与上游逐行一致，仅给 IP 类规则补 `no-resolve` 防本地解析（见常见问题） |
 | `.github/workflows/sync.yml` | 每日定时同步任务 |
 | `qrcode.png` / `qrcode-raw.png` | 版本一的 jsDelivr / Raw 导入二维码 |
 | `qrcode-ad.png` / `qrcode-ad-raw.png` | 版本二的 jsDelivr / Raw 导入二维码 |
