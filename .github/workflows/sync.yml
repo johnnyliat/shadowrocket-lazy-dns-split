@@ -1,0 +1,40 @@
+name: Sync lazy.conf + DNS patch
+
+# 每天 UTC 01:07（北京时间 09:07）自动同步；也可在 Actions 页面手动触发
+on:
+  schedule:
+    - cron: '7 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-lazy
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download upstream lazy.conf
+        run: curl -fsSL --retry 3 -o upstream-lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
+
+      - name: Apply DNS split patch
+        run: python3 patch.py upstream-lazy.conf lazy-dns.conf
+
+      - name: Commit if changed
+        run: |
+          rm -f upstream-lazy.conf
+          git add lazy-dns.conf
+          if git diff --cached --quiet; then
+            echo "No changes from upstream."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "sync: upstream lazy.conf + DNS split patch"
+          git push
