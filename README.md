@@ -23,6 +23,10 @@
 - jsDelivr（国内可直达，有数小时缓存）：`https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns@main/lazy-dns.conf`
 - Raw（无缓存，更新最及时）：`https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns/main/lazy-dns.conf`
 
+扫码导入（二维码内容为上面的 jsDelivr 地址，在 Shadowrocket 里点右上角扫码图标扫描即可）：
+
+![扫码导入](qrcode.png)
+
 导入后可在「设置 → 更新」里为该配置开启自动更新。
 
 ## 工作原理
