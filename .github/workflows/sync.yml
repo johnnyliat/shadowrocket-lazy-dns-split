@@ -32,6 +32,12 @@ jobs:
       - name: Build ad version (DNS patch + embed ad rules)
         run: python3 patch_ad.py upstream-lazy.conf upstream-sr_ad_only.conf lazy-dns-ad.conf
 
+      - name: Purge jsDelivr cache
+        if: always()
+        run: |
+          curl -fsSL "https://purge.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf" || true
+          curl -fsSL "https://purge.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf" || true
+
       - name: Commit if changed
         run: |
           rm -f upstream-lazy.conf upstream-sr_ad_only.conf
