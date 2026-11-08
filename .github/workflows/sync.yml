@@ -26,13 +26,9 @@ jobs:
         run: |
           curl -fsSL --retry 3 -o upstream-lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
           curl -fsSL --retry 3 -o upstream-sr_ad_only.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_ad_only.conf"
-          mkdir -p qx
-          for n in Apple China Global WeChat; do
-            curl -fsSL --retry 3 -o "qx/$n.list" "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/$n/$n.list"
-          done
 
-      - name: Build self-hosted rule-set mirrors (append no-resolve to IP rules)
-        run: python3 patch_lists.py qx rules
+      - name: Build self-hosted rule-set mirrors (all lists in mirrors.txt)
+        run: python3 patch_lists.py
 
       - name: Apply DNS split patch (pure version)
         run: python3 patch.py upstream-lazy.conf lazy-dns.conf
@@ -45,7 +41,7 @@ jobs:
 
       - name: Commit if changed
         run: |
-          rm -rf upstream-lazy.conf upstream-sr_ad_only.conf qx
+          rm -rf upstream-lazy.conf upstream-sr_ad_only.conf
           git add lazy-dns.conf lazy-dns-ad.conf rules
           if git diff --cached --quiet; then
             echo "No changes from upstream."
