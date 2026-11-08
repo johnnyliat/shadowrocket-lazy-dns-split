@@ -30,7 +30,7 @@ QX_LISTS = {
     "Global": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/Global/Global.list",
     "WeChat": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/WeChat/WeChat.list",
 }
-SELF_HOSTED = "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/rules/{name}.list"
+SELF_HOSTED = "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/rules/{name}.list"
 CUSTOM_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "custom-rules.txt")
 CUSTOM_DOMAIN_TYPES = {"DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD"}
 CUSTOM_IP_TYPES = {"IP-CIDR", "IP-CIDR6", "IP6-CIDR"}
