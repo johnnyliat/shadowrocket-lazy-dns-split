@@ -1,9 +1,9 @@
 name: Weekly rule-set health check
 
-# 每周一 UTC 03:17（北京时间 11:17）检查上游、全部远程规则集与自家 CDN 分发面是否可用，
-# 并硬校验 jsDelivr 上的六个文件与仓库内容逐字节一致；也可手动触发
+# 每周一 UTC 03:17（北京时间 11:17）探活：上游文件、配置引用的全部远程规则集、自家六个文件；也可手动触发
 # 名单不写死：每次运行时从最新 lazy.conf 现场提取 RULE-SET 链接，上游增删自动跟随
-# CDN 一致性放在这里做硬校验，是因为 jsDelivr 同步收敛可达十几分钟，只有拉开时间窗口判失败才不会误报
+# 自家文件走 GitHub Raw 直接读仓库、没有缓存层，能打开就是当前内容，不需要再做缓存一致性比对
+# 本工作流不检出代码、不写仓库，纯网络探活，所以不需要任何第三方 Action
 on:
   schedule:
     - cron: '17 3 * * 1'
@@ -17,9 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
       - name: Check upstream files and rule-sets
         run: |
           set -u
@@ -41,35 +38,14 @@ jobs:
           grep -oE "RULE-SET,https://[^,]+" /tmp/lazy.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/urls.txt
           echo "Rule-sets found: $(wc -l < /tmp/urls.txt)"
           while IFS= read -r u; do check "$u"; done < /tmp/urls.txt
-          echo "First-party CDN surfaces:"
-          check "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf"
-          check "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf"
+          echo "First-party files (GitHub Raw):"
+          check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf"
+          check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf"
           for n in Apple China Global WeChat; do
-            check "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/rules/$n.list"
+            check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/rules/$n.list"
           done
           if [ "$fail" -ne 0 ]; then
             echo "::error::Some upstream/rule-set URLs are unavailable (see FAIL lines above)."
             exit 1
           fi
           echo "All URLs healthy."
-
-      - name: Verify jsDelivr content matches repo (hard check)
-        run: |
-          REPO="johnnyliat/shadowrocket-lazy-dns-split@main"
-          FILES="lazy-dns.conf lazy-dns-ad.conf rules/Apple.list rules/China.list rules/Global.list rules/WeChat.list"
-          fail=0
-          for f in $FILES; do
-            want=$(sha256sum "$f" | cut -d' ' -f1)
-            got=$(curl -fsSL "https://cdn.jsdelivr.net/gh/$REPO/$f" | sha256sum | cut -d' ' -f1)
-            if [ "$want" != "$got" ]; then
-              echo "MISMATCH: $f"
-              fail=1
-            else
-              echo "OK: $f matches repo"
-            fi
-          done
-          if [ "$fail" -ne 0 ]; then
-            echo "::error::jsDelivr content does not match repo in weekly hard check."
-            exit 1
-          fi
-          echo "jsDelivr content matches repo on all 6 files."
