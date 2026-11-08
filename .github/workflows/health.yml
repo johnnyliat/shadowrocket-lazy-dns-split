@@ -49,4 +49,5 @@ jobs:
             echo "::error::Some upstream/rule-set URLs are unavailable (see FAIL lines above)."
             exit 1
           fi
-          echo "All URLs healthy.
+          echo "All URLs healthy."
+          
