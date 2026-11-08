@@ -84,3 +84,8 @@ DOMAIN-SUFFIX,hsbc-zertifikate.de,DIRECT
 DOMAIN-SUFFIX,hsbc.lk,DIRECT
 DOMAIN-SUFFIX,hsbc.fr,DIRECT
 DOMAIN-SUFFIX,hsbctrinkaus.de,DIRECT
+
+# --- 2026-11-09 ip.cn 走代理 ---
+# ip.cn 本是 .cn 域名、按 China 表的总规则会直连；手动指定代理后，
+# 打开它看到的是 VPS 的出口 IP 与归属地，用来核对代理是否生效。
+DOMAIN-SUFFIX,ip.cn,PROXY
