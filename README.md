@@ -47,6 +47,8 @@ direct-dns-server = https://dns.alidns.com/dns-query,https://doh.pub/dns-query
 proxy-dns-server = https://dns.alidns.com/dns-query,https://doh.pub/dns-query
 dns-fallback-system = false
 dns-direct-system = false
+dns-direct-fallback-proxy = true
+allow-dns-all = false
 ipv6 = false
 
 GEOIP,CN,DIRECT,no-resolve
@@ -57,6 +59,7 @@ FINAL,PROXY,force-remote-dns
 - **IP 规则不再触发本地解析**：`GEOIP,CN,DIRECT,no-resolve`，以及自托管的规则表镜像（见下），保证匹配规则时不会顺手把域名解析一遍。
 - **不退回运营商 DNS**：删掉 `fallback-dns-server` 并设 `dns-fallback-system = false`，国内加密 DNS 全挂了也不会悄悄换成明文的运营商 DNS。
 - **关闭 IPv6 解析**：`ipv6 = false`，避免 IPv6 通道绕过分流。
+- **冷门查询类型不外发**：`allow-dns-all = false`，A/AAAA 之外的查询（HTTPS、SVCB、TXT 等）直接返回空值，不转发给国内 DNS，免得境外域名换一种查询类型又在本地留痕。
 - 两家 DoH 同时使用，一家出问题时解析不中断；查询内容走 HTTPS，但两家解析商本身看得到查询记录。
 
 ### 规则表的镜像
@@ -72,7 +75,7 @@ FINAL,PROXY,force-remote-dns
 - **分流合理**：国内外分流沿用上游成熟的规则，常用国内外服务都有单独分流。
 - **去广告可选**：两个版本随时切换，平时用去广告版，遇到检测拦截的网站切到基础版。
 - **自动更新，省心**：每天自动同步上游、重新生成配置，只需在 Shadowrocket 里打开配置自动更新。
-- **更新有保障**：生成过程带完整性检查，检查不过就不发布，线上继续用上一版。构建最后一步会把配置引用的全部规则表逐条扫描，确认 IP 规则都带 `no-resolve`。
+- **更新有保障**：生成过程带完整性检查，检查不过就不发布，线上继续用上一版。出厂检查会把成品引用的全部规则表逐条扫描，确认 IP 规则都带 `no-resolve`。
 
 ---
 
@@ -162,6 +165,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 | `patch_ad.py` | 去广告版构建脚本 |
 | `patch_lists.py` | 规则镜像构建脚本 |
 | `check_no_resolve.py` | 出厂检查：全量扫描 IP 规则 |
+| `LICENSE` | 许可证（本仓库自有代码与文档） |
 | `.github/workflows/` | 每日同步和每周健康检查 |
 
 成品是自动生成的，手改的内容会在下一次同步时被覆盖。要调整生成结果，请改对应的构建脚本。
@@ -186,6 +190,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 - [Johnshall / Shadowrocket-ADBlock-Rules-Forever](https://github.com/Johnshall/Shadowrocket-ADBlock-Rules-Forever)：懒人配置和去广告规则
 - [LOWERTOP / Shadowrocket](https://github.com/LOWERTOP/Shadowrocket)：懒人配置的原始出处
 - [blackmatrix7 / ios_rule_script](https://github.com/blackmatrix7/ios_rule_script)：应用分流规则集
+- [iab0x00 / ProxyRules](https://github.com/iab0x00/ProxyRules)：AI 分流规则表
 - [DuskWander87 / shadowrocket-config](https://github.com/DuskWander87/shadowrocket-config)：DNS 分流思路的参考来源
 
 规则内容的版权归各上游所有，本仓库做的是 DNS 补丁、规则镜像和自动构建。本仓库自有的脚本与文档以 MIT 许可证发布（见 `LICENSE` 文件）；上游配置、规则与数据仍归各自作者所有，遵循其原许可证。仅供学习和个人使用，版权方面有问题请联系处理。
