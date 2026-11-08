@@ -21,21 +21,17 @@
 
 两个版本都可以导入，换着用。平时用去广告版；有些网站会检测广告拦截、拦下就限制功能，遇到这种站点切到基础版，用完再切回来。两份配置的 DNS 和分流规则完全一样，只是去广告版多内嵌了一套广告拦截规则，来自上游的 sr_ad_only.conf，写在规则最前面，不需要再单独装广告模块，也不用开 HTTPS 解密。
 
-这个仓库只提供配置和规则，节点需要自己准备。
-
-两个版本左右排在同一张表里，左边基础版，右边去广告版。订阅地址只有一条线：GitHub Raw，直接读仓库文件，没有中间缓存层，仓库一更新，拉到的就是最新版。
-
 | 版本一：懒人配置 + DNS 国内外分流 | 版本二：懒人配置 + DNS 国内外分流 + 去广告 |
 | :---: | :---: |
 | <img src="qrcode-raw.png" width="190" alt="版本一二维码"> | <img src="qrcode-ad-raw.png" width="190" alt="版本二二维码"> |
 
-版本一订阅地址：
+版本一：
 
 ```text
 https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf
 ```
 
-版本二订阅地址：
+版本二：
 
 ```text
 https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf
@@ -150,7 +146,7 @@ DOMAIN-SUFFIX,example.org,PROXY
 ## 常见问题
 
 **导入之后连不上？**
-先看节点本身是不是可用、全局路由是不是选了「配置」。这个仓库不提供节点。
+先看节点本身是不是可用、全局路由是不是选了「配置」。
 
 **DNS 检测网站上，境外域名显示的解析商是 Cloudflare，正常吗？**
 正常。这说明域名是在服务器端解析的，检测网站看到的是你节点服务器用的 DNS 上游。显示哪家由服务器决定，想换的话改服务器端的 DNS 设置。
