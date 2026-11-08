@@ -1,9 +1,11 @@
-# shadowrocket-lazy-dns-split
+<h1 align="center">Shadowrocket 懒人配置 + DNS 国内外分流</h1>
 
-**Shadowrocket 懒人配置 + DNS 国内外分流。** 国内域名本地加密解析，境外域名交给节点远端解析，每天自动同步上游，可选内嵌去广告。
+<p align="center">国内域名本地加密解析 · 境外域名交给节点远端解析 · 每日自动同步上游 · 可选内嵌去广告</p>
 
-[![每日同步](https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml/badge.svg)](https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml)
-[![每周健康检查](https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml/badge.svg)](https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml)
+<p align="center">
+  <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml"><img src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml/badge.svg" alt="每日同步状态"></a>
+  <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml"><img src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml/badge.svg" alt="每周健康检查状态"></a>
+</p>
 
 ---
 
@@ -75,7 +77,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 1. 扫码，或复制地址，在 Shadowrocket 里从 URL 导入。
 2. 选中导入的配置。
 3. 首页「全局路由」选「配置」。
-4. 选好节点，连上。
+4. 回到首页，开启连接。
 5. 设置里打开配置自动更新。
 
 ---
@@ -89,7 +91,6 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 | 命中直连的域名 | 阿里 DoH + 腾讯 DoH，本地加密解析 |
 | 命中代理的域名 | 本地不解析，交节点在服务器端解析 |
 | 没被任何规则命中的域名 | 按境外处理：走代理，远端解析 |
-| 节点自己的域名 | 阿里 DoH + 腾讯 DoH（连接节点前要先知道它的地址） |
 
 两家 DoH 配置为同时使用，一家出问题时解析不中断。查询内容走 HTTPS，本地网络和运营商看不到明文，但两家解析商本身看得到查询记录。
 
@@ -159,33 +160,10 @@ blackmatrix7 提供了 Shadowrocket 格式的同名表，但那是精简版，�
 **这份配置管不到的：**
 
 - DoH 地址本身（`dns.alidns.com`、`doh.pub`）是域名，首次连接前需要先解析，这一步不由本配置控制。
-- 节点自己的域名由国内 DoH 解析，解析商能看到它。介意的话，节点直接用 IP。
 - App 内置的加密 DNS、iCloud 专用代理（Private Relay）这类通道，任何配置都管不到。
 - 浏览器之外的 App、系统服务产生的查询，上面的检测网站测不到。想验证得抓包。
 
 **关于规则内容：** 自动检查管的是格式、条数和规则完整性，上游规则本身没有人工逐条审核。
-
----
-
-## 手动规则
-
-想让某个域名固定直连或走代理，改仓库根目录的 `custom-rules.txt`，一行一条：
-
-```text
-DOMAIN-SUFFIX,example.com,DIRECT
-DOMAIN-SUFFIX,example.org,PROXY
-```
-
-构建时内嵌进两份成品，位置在全部远程规则表之前，优先级高于上游名单：名单里是直连的可以改成代理，反过来也一样。
-
-成品里默认带着两组：汇丰集团的一批域名直连（`hsbc` 顶级域及各国后缀，含 `hsbc.com.hk`、`vv1865.com` 等），和 `ip.cn` 走代理。不需要就删掉 `custom-rules.txt` 里对应的行。
-
-两条边界：
-
-- 上游写死在配置里的本地功能规则（localhost、局域网 IP 段这类行）排在手动规则前面，不受影响；
-- 去广告版里广告规则（REJECT）排在最前面，被广告规则命中的域名，手动指定直连也不会放行。
-
-构建会逐条校验：策略只允许 DIRECT 或 PROXY，同一目标不许写两条，IP 段规则必须带 `no-resolve`。写错一行，整轮构建失败，线上继续用上一版。
 
 ---
 
@@ -196,7 +174,7 @@ DOMAIN-SUFFIX,example.org,PROXY
 | `lazy-dns.conf` | 基础版成品，Actions 自动生成 |
 | `lazy-dns-ad.conf` | 去广告版成品，Actions 自动生成 |
 | `rules/` | 四张规则镜像，Actions 自动生成 |
-| `custom-rules.txt` | 手动直连/代理规则，构建时内嵌进两份成品 |
+| `custom-rules.txt` | 附加规则，构建时内嵌进两份成品 |
 | `patch.py` | 基础版构建脚本 |
 | `patch_ad.py` | 去广告版构建脚本 |
 | `patch_lists.py` | 规则镜像构建脚本 |
@@ -209,14 +187,11 @@ DOMAIN-SUFFIX,example.org,PROXY
 
 ## 常见问题
 
-**导入后连不上？**
-先看节点本身是否可用，全局路由是否选了「配置」。
-
 **国内某个网站很慢或打不开？**
-多半是没被规则表收录、默认走了代理。在 `custom-rules.txt` 里给它加一条直连规则即可，格式见「手动规则」一节。
+多半是没被规则表收录，默认走了代理，见「适用与边界」。
 
 **检测站里境外域名显示的是 Cloudflare，正常吗？**
-正常。这说明域名是在服务器端解析的，显示的是你的节点服务器所用的 DNS 上游，想换就改服务器端设置。
+正常。这说明域名是在服务器端解析的，显示的是服务器端的 DNS 上游。
 
 **检测里出现了系统 DNS，是泄露吗？**
 看是哪个域名触发的。Apple 相关域名属于上面写的例外；检测站自己的探针域名走代理那一路，显示的应该是服务器端的解析商。单个结果说明不了全部流量，需要结合域名判断。
