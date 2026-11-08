@@ -145,7 +145,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 - **有几处有意保留的例外**：Apple 和 iCloud 域名走系统 DNS（保证 App Store、iCloud 的稳定）；两家加密 DNS 都不可达时，直连域名可借代理解析（避免 DNS 故障直接断网）；上游 `skip-proxy` 里的局域网段、三家银行域名和个别门户站点不发给代理服务器、由 TUN 接口按直连处理（银行 App 兼容）。
 - **配置管不到的通道**：DoH 地址本身（`dns.alidns.com`、`doh.pub`）是域名，首次连接前要先解析，这一步不由本配置控制；App 内置的加密 DNS、iCloud 专用代理（Private Relay）等，任何配置都管不到；浏览器之外的 App、系统服务产生的查询，上面的检测网站测不到，想验证得抓包。
 - **规则内容来自上游**：自动检查保证的是格式、结构、条数和规则完整性，上游规则本身没有人工逐条审核。
-- **成品带有维护者自用的少量附加规则**（个别银行域名直连等），清单在 `custom-rules.txt` 里公开，不影响一般使用。
+- **成品带有少量手动维护的附加规则**：个别域名指定直连或代理，清单在 `custom-rules.txt` 中公开可查，不影响一般使用。
 
 ---
 
