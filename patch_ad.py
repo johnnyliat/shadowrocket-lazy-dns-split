@@ -4,10 +4,13 @@
 用法: python3 patch_ad.py <上游 lazy.conf> <上游 sr_ad_only.conf> <输出文件>
 
 流水线（三步，顺序固定）:
-  1) DNS 补丁（与 shadowrocket-lazy-dns 仓库完全相同）:
+  1) DNS 补丁（与基础版 patch.py 完全相同）:
      国内双 DoH（阿里+腾讯）写入 dns-server / direct-dns-server / proxy-dns-server；
      删除 fallback-dns-server 并加 dns-fallback-system = false（fail-closed）；
-     ipv6 = false；GEOIP,CN,DIRECT 加 no-resolve；FINAL,PROXY 加 force-remote-dns。
+     ipv6 = false；GEOIP,CN,DIRECT 加 no-resolve；FINAL,PROXY 加 force-remote-dns；
+     allow-dns-all = false（A/AAAA 之外的查询返回空值、不转发给国内 DNS）。
+     生成后另有结构安检：段落集合、[Proxy]/[Proxy Group] 无生效行、无 include、
+     规则集地址白名单、[Host]/[MITM]/[URL Rewrite] 与基线一致，防供应链篡改。
   2) 去广告内嵌: 取 sr_ad_only.conf 的全部规则（仅 DOMAIN-SUFFIX / IP-CIDR 两类），
      Reject -> REJECT，IP-CIDR 追加 no-resolve（避免为判 IP 规则触发本地解析），
      整段插入 [Rule] 最前面（优先级最高，先于一切分流规则命中）。
@@ -19,13 +22,26 @@ import ipaddress, os, re, sys
 
 DUAL_DOH = "https://dns.alidns.com/dns-query,https://doh.pub/dns-query"
 
-QX_LISTS = {
-    "Apple": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/Apple/Apple.list",
-    "China": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/China/China.list",
-    "Global": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/Global/Global.list",
-    "WeChat": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/WeChat/WeChat.list",
-}
-SELF_HOSTED = "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/rules/{name}.list"
+SELF_BASE = "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/"
+MIRRORS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mirrors.txt")
+
+def load_mirrors():
+    """读 mirrors.txt，返回 {上游地址: 自家镜像地址}。成品引用的每张规则表
+    都必须在清单内并改指自家镜像；清单外的表不会被改写，随后的自检会拦下。"""
+    if not os.path.exists(MIRRORS_FILE):
+        fail("缺少 mirrors.txt")
+    m = {}
+    for raw in open(MIRRORS_FILE, encoding="utf-8"):
+        s = raw.strip()
+        if not s or s.startswith("#"):
+            continue
+        parts = s.split()
+        if len(parts) != 2:
+            fail(f"mirrors.txt 行格式不对: {s!r}")
+        m[parts[0]] = SELF_BASE + parts[1]
+    if not m:
+        fail("mirrors.txt 是空的")
+    return m
 CUSTOM_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "custom-rules.txt")
 CUSTOM_DOMAIN_TYPES = {"DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD"}
 CUSTOM_IP_TYPES = {"IP-CIDR", "IP-CIDR6", "IP6-CIDR"}
@@ -73,6 +89,52 @@ def fail(msg):
     print(f"PATCH FAILED: {msg}", file=sys.stderr)
     sys.exit(1)
 
+# ---- 结构安检基线（2026-11-09 按线上成品实测值设定，与 patch.py 保持一致）----
+ALLOWED_SECTIONS = {"[General]", "[Proxy]", "[Proxy Group]", "[Rule]", "[Host]", "[URL Rewrite]", "[MITM]"}
+ALLOWED_RS_PREFIXES = (
+    "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/",
+)
+EXPECTED_HOST = {"*.apple.com = server:system", "*.icloud.com = server:system", "localhost = 127.0.0.1"}
+EXPECTED_MITM = {"hostname = *.google.cn"}
+EXPECTED_REWRITE = {
+    "^https?://(www.)?g.cn https://www.google.com 302",
+    "^https?://(www.)?google.cn https://www.google.com 302",
+}
+
+def assert_structure(text):
+    """结构安检：成品骨架与基线不符即 fail。
+    防两件事：一是供应链篡改（塞节点、塞 include、把规则集换到陌生地址、
+    改 [Host]/[MITM]/[URL Rewrite]）；二是上游正当改版悄悄改变成品结构。
+    宁可停一天等人工确认，也不要自动放行没见过的新骨架。"""
+    sec, seen = None, {}
+    for raw in text.splitlines():
+        t = raw.strip()
+        if t.startswith("[") and t.endswith("]"):
+            sec = t
+            if sec not in ALLOWED_SECTIONS:
+                fail(f"结构安检：出现未知段 {sec}")
+            continue
+        if not t or t.startswith("#"):
+            continue
+        seen.setdefault(sec, []).append(t)
+        if sec in ("[Proxy]", "[Proxy Group]"):
+            fail(f"结构安检：{sec} 出现生效行: {t}")
+        if sec == "[General]" and t.lower().startswith("include"):
+            fail(f"结构安检：[General] 出现 include: {t}")
+        if sec == "[Rule]":
+            if t.startswith(("SCRIPT,", "URL-REGEX,")):
+                fail(f"结构安检：不允许的规则类型: {t}")
+            if t.startswith(("RULE-SET,", "DOMAIN-SET,")):
+                url = t.split(",", 2)[1]
+                if not url.startswith(ALLOWED_RS_PREFIXES):
+                    fail(f"结构安检：规则集地址不在白名单: {url}")
+    if set(seen.get("[Host]", [])) != EXPECTED_HOST:
+        fail(f"结构安检：[Host] 内容变化: {seen.get('[Host]')}")
+    if set(seen.get("[MITM]", [])) != EXPECTED_MITM:
+        fail(f"结构安检：[MITM] 内容变化: {seen.get('[MITM]')}")
+    if set(seen.get("[URL Rewrite]", [])) != EXPECTED_REWRITE:
+        fail(f"结构安检：[URL Rewrite] 内容变化: {seen.get('[URL Rewrite]')}")
+
 def load_ad_rules(path):
     rules, section = [], None
     for raw in open(path, encoding="utf-8"):
@@ -101,6 +163,8 @@ def load_ad_rules(path):
 def main(lazy_path, ad_path, out_path):
     ad_rules = load_ad_rules(ad_path)
     custom_rules = load_custom_rules()
+    mirrors = load_mirrors()
+    mirror_hits = {}
     lines = open(lazy_path, encoding="utf-8").read().splitlines()
     out, section = [], None
     done = set()
@@ -147,6 +211,12 @@ def main(lazy_path, ad_path, out_path):
             done.add("ipv6")
             continue
 
+        if section == "[General]" and s == "# allow-dns-all =":
+            out.append("# [DNS分流补丁] allow-dns-all 显式设为 false（上游此行原为注释、软件默认开启）：默认开启时 A/AAAA 之外的 HTTPS/SVCB/TXT 等查询会转发给上游 DNS（即国内 DoH），境外域名会以冷门查询类型在本地留痕；设为 false 后这类查询返回空值、不发出。")
+            out.append("allow-dns-all = false")
+            done.add("dnsall")
+            continue
+
         if section == "[Rule]" and s in ("GEOIP,CN,DIRECT", "GEOIP,CN,DIRECT,no-resolve"):
             out.append("GEOIP,CN,DIRECT,no-resolve")
             done.add("geoip")
@@ -158,23 +228,21 @@ def main(lazy_path, ad_path, out_path):
             continue
 
         if section == "[Rule]" and s.startswith("RULE-SET,"):
-            hit = None
-            for name, qx_url in QX_LISTS.items():
-                if qx_url in s:
-                    hit = name
-                    break
-            if hit:
-                out.append(f"# [DNS分流补丁] {hit} 表原为 QuantumultX 格式，其 IP 规则不带 no-resolve，未命中域名会被本地解析一次（泄露面）；改引本仓库自托管镜像 rules/{hit}.list（与上游逐行一致、仅补 no-resolve，每日随上游同步）。")
-                out.append(s.replace(QX_LISTS[hit], SELF_HOSTED.format(name=hit)))
-                done.add(f"ruleset_{hit}")
+            url = s.split(",", 2)[1]
+            if url in mirrors:
+                out.append(s.replace(url, mirrors[url], 1))
+                mirror_hits[url] = mirror_hits.get(url, 0) + 1
             else:
                 out.append(raw)
             continue
 
         out.append(raw)
 
-    missing = {"dns", "fallback", "ipv6", "geoip", "final", "ad", "custom",
-               "ruleset_Apple", "ruleset_China", "ruleset_Global", "ruleset_WeChat"} - done
+    missing = {"dns", "fallback", "ipv6", "dnsall", "geoip", "final", "ad", "custom"} - done
+    if set(mirror_hits) != set(mirrors):
+        fail(f"镜像改写不完整，未改写的表: {sorted(set(mirrors) - set(mirror_hits))}（上游可能已增删规则表，先更新 mirrors.txt）")
+    if any(v != 1 for v in mirror_hits.values()):
+        fail("同一张规则表被改写了不止一次")
     if missing:
         fail(f"锚点缺失，上游格式可能已变化，未完成的步骤: {sorted(missing)}")
 
@@ -201,11 +269,9 @@ def main(lazy_path, ad_path, out_path):
             fail(f"{key} 双 DoH 缺失")
     if "dns-fallback-system = false" not in active or "ipv6 = false" not in active:
         fail("fail-closed / ipv6 行缺失")
-    for name, qx_url in QX_LISTS.items():
-        if any(qx_url in l for l in active):
-            fail(f"{name} 仍在引用 QX 原表")
-        if sum(1 for l in active if SELF_HOSTED.format(name=name) in l) != 1:
-            fail(f"{name} 自托管镜像引用不是恰好一条")
+    if [l for l in active if l.startswith("allow-dns-all")] != ["allow-dns-all = false"]:
+        fail("allow-dns-all 不是恰好一条且为 false")
+    assert_structure(text)
     rejects = [l for l in rule_active if l.endswith(",REJECT") or l.endswith(",REJECT,no-resolve")]
     if len(rejects) != len(ad_rules):
         fail(f"内嵌去广告计数不符: 文件内 {len(rejects)} vs 上游 {len(ad_rules)}")
@@ -213,6 +279,9 @@ def main(lazy_path, ad_path, out_path):
         fail("去广告规则不在 [Rule] 最前面或顺序被打乱")
     if not rule_active or rule_active[-1] != "FINAL,PROXY,force-remote-dns":
         fail("FINAL 不是 [Rule] 最后一条规则")
+    rs_urls = [l.split(",", 2)[1] for l in rule_active if l.startswith(("RULE-SET,", "DOMAIN-SET,"))]
+    if sorted(rs_urls) != sorted(mirrors.values()):
+        fail("成品引用的规则表与 mirrors.txt 清单不一致（存在未镜像的表，或缺失/重复）")
 
 
     # 手动规则块必须存在、位于第一张远程规则表之前，且规则完整内嵌
@@ -237,7 +306,8 @@ def main(lazy_path, ad_path, out_path):
         "#   国内: dns-server / direct-dns-server / proxy-dns-server = 阿里 DoH + 腾讯 DoH（加密）\n"
         "#   国外: 无本地解析 —— GEOIP 加 no-resolve、FINAL,PROXY,force-remote-dns 交节点远端解析；\n"
         "#         删除 fallback-dns-server 并设 dns-fallback-system = false（fail-closed）；ipv6 = false；\n"
-        "#         Apple/China/Global/WeChat 四张表改引自托管镜像 rules/*.list（原 QX 格式 IP 规则无 no-resolve 会触发本地解析；镜像逐行一致、仅补 no-resolve）。\n"
+        "#         allow-dns-all = false（A/AAAA 之外的查询返回空值、不转发国内 DNS）；\n"
+        "#         全部 34 张规则表改引自托管镜像 rules/*.list（与上游逐行一致、仅补 no-resolve；QX 格式四张表的 IP 规则原本无此标记、会触发本地解析）。\n"
         "#         注: [Host] 中 Apple/iCloud 的 server:system 为上游有意的兼容设计，原样保留。\n"
         "# 本文件由 GitHub Actions 每日自动同步两个上游并重新生成。\n"
         "# ============================================================\n"

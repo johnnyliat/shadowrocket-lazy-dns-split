@@ -4,17 +4,28 @@ IP 类规则（IP-CIDR / IP-CIDR6 / IP6-CIDR / IP-ASN / GEOIP）都带 no-resolv
 
 背景: 2026-11-08 的 DNS 泄露正是因为四张 QuantumultX 格式表的 IP 规则
 不带 no-resolve、而原构建只检查主配置文本、没查远程表内容。此脚本把那次
-人工全链审阅固化为每日自动守卫：本地规则行 + 全部 RULE-SET 远程表逐张
-下载扫描，任何一处新出现无 no-resolve 的 IP 规则，当日构建即失败报警，
+人工全链审阅固化为每日自动守卫：本地规则行 + 全部 RULE-SET 表逐张扫描，
+任何一处新出现无 no-resolve 的 IP 规则，当日构建即失败报警，
 问题成品不会提交、不出厂。
 
+扫描口径（2026-11-09 按外部审计建议收紧）:
+  - 整行扫描：IP 类规则字样出现在一行中的任何位置（如 AND/OR 组合条件里
+    嵌套的 IP 条件）都算数，整行没有 no-resolve 即违规，不再只看行首。
+  - 自家镜像（本仓库 Raw 地址）直接读工作区里本次构建刚生成、尚未提交的
+    本地文件，查的就是即将出厂的那一份，不再下载线上上一版。
+  - 外部表联网下载，失败自动重试 3 次，避免网络抖动误报构建失败。
+
 用法: python3 check_no_resolve.py <conf 路径> [<conf 路径> ...]
+（须在仓库根目录运行：自家镜像按相对路径读本地文件。）
 """
+import os
 import re
 import sys
+import time
 import urllib.request
 
-IP_LINE = re.compile(r"^(IP-CIDR|IP-CIDR6|IP6-CIDR|IP-ASN|GEOIP),", re.I)
+SELF_PREFIX = "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/"
+IP_TOKEN = re.compile(r"(IP-CIDR6?|IP6-CIDR|IP-ASN|GEOIP)\s*,", re.I)
 RULESET = re.compile(r"^RULE-SET,(https://[^,]+),")
 
 def fail(msg):
@@ -22,14 +33,43 @@ def fail(msg):
     sys.exit(1)
 
 def fetch(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (check_no_resolve)"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", errors="replace").splitlines()
+    last = None
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (check_no_resolve)"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return r.read().decode("utf-8", errors="replace").splitlines()
+        except Exception as e:
+            last = e
+            if attempt < 2:
+                time.sleep(2 ** (attempt + 1))
+    raise last
+
+def load(url):
+    if url.startswith(SELF_PREFIX):
+        path = url[len(SELF_PREFIX):]
+        if not os.path.exists(path):
+            fail(f"自家规则集本地文件不存在: {path}（构建顺序异常）")
+        return open(path, encoding="utf-8").read().splitlines()
+    try:
+        return fetch(url)
+    except Exception as e:
+        fail(f"规则集拉取失败 {url}: {e}")
+
+def violations(lines):
+    bad = []
+    for raw in lines:
+        s = raw.strip()
+        if not s or s.startswith("#"):
+            continue
+        if IP_TOKEN.search(s) and "no-resolve" not in s.lower():
+            bad.append(s)
+    return bad
 
 def main(paths):
     urls = set()
     for p in paths:
-        sec = None
+        sec, rule_lines = None, []
         for raw in open(p, encoding="utf-8"):
             s = raw.strip()
             if s.startswith("[") and s.endswith("]"):
@@ -37,25 +77,22 @@ def main(paths):
                 continue
             if sec != "[Rule]" or not s or s.startswith("#"):
                 continue
+            rule_lines.append(s)
             m = RULESET.match(s)
             if m:
                 urls.add(m.group(1))
-            elif IP_LINE.match(s) and "no-resolve" not in s.lower():
-                fail(f"{p} 本地 IP 规则无 no-resolve: {s}")
+        bad = violations(rule_lines)
+        if bad:
+            fail(f"{p} 本地 IP 规则无 no-resolve: {bad[0]}（共 {len(bad)} 条）")
     total_bad = 0
     for u in sorted(urls):
-        try:
-            body = fetch(u)
-        except Exception as e:
-            fail(f"规则集拉取失败 {u}: {e}")
-        bad = [l.strip() for l in body
-               if IP_LINE.match(l.strip()) and "no-resolve" not in l.lower()]
+        bad = violations(load(u))
         if bad:
             total_bad += len(bad)
             print(f"BAD {u}: {len(bad)} 条 IP 规则无 no-resolve，如 {bad[0]}")
     if total_bad:
         fail(f"共 {total_bad} 条 IP 规则无 no-resolve，拒绝出厂")
-    print(f"OK: {len(urls)} 张远程表 + 本地规则，全部 IP 规则均带 no-resolve")
+    print(f"OK: {len(urls)} 张表（自家镜像查本地新文件、外部表联网查）+ 本地规则，全部 IP 规则均带 no-resolve")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
