@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """check_no_resolve.py — 出厂检查：扫描成品配置的全部规则，断言每一条
-IP 类规则（IP-CIDR / IP-CIDR6 / IP6-CIDR / IP-ASN）都带 no-resolve。
+IP 类规则（IP-CIDR / IP-CIDR6 / IP6-CIDR / IP-ASN / GEOIP）都带 no-resolve。
 
 背景: 2026-11-08 的 DNS 泄露正是因为四张 QuantumultX 格式表的 IP 规则
 不带 no-resolve、而原构建只检查主配置文本、没查远程表内容。此脚本把那次
@@ -14,7 +14,7 @@ import re
 import sys
 import urllib.request
 
-IP_LINE = re.compile(r"^(IP-CIDR|IP-CIDR6|IP6-CIDR|IP-ASN),", re.I)
+IP_LINE = re.compile(r"^(IP-CIDR|IP-CIDR6|IP6-CIDR|IP-ASN|GEOIP),", re.I)
 RULESET = re.compile(r"^RULE-SET,(https://[^,]+),")
 
 def fail(msg):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""patch.py — lazy.conf + DNS 国内外分流补丁 + sr_ad_only 去广告规则内嵌。
+"""patch_ad.py — lazy.conf + DNS 国内外分流补丁 + sr_ad_only 去广告规则内嵌。
 
-用法: python3 patch.py <上游 lazy.conf> <上游 sr_ad_only.conf> <输出文件>
+用法: python3 patch_ad.py <上游 lazy.conf> <上游 sr_ad_only.conf> <输出文件>
 
 流水线（三步，顺序固定）:
   1) DNS 补丁（与 shadowrocket-lazy-dns 仓库完全相同）:
