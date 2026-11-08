@@ -1,4 +1,4 @@
-# Mirror of blackmatrix7 ios_rule_script rule/QuantumultX/Global/Global.list, content identical except ',no-resolve' appended to IP-CIDR/IP6-CIDR/IP-ASN lines (prevents local DNS resolution in Shadowrocket). Auto-synced daily. Source: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/Global/Global.list
+# Mirror of blackmatrix7/ios_rule_script/master/rule/QuantumultX/Global/Global.list, content identical to upstream except ',no-resolve' appended to IP rule lines lacking it (prevents local DNS resolution in Shadowrocket). Auto-synced daily. Source: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/Global/Global.list
 # NAME: Global
 # AUTHOR: blackmatrix7
 # REPO: https://github.com/blackmatrix7/ios_rule_script
