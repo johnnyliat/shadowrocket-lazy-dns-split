@@ -117,6 +117,24 @@ FINAL,PROXY,force-remote-dns
 - **少数地址不进隧道。** 上游的 `skip-proxy` 里有局域网地址段、三家银行（建行、农行、邮储）的域名和个别门户站点，这些连接按系统路径直走，是给银行类 App 做的兼容，原样保留。
 - **App 自己内置的加密 DNS、iCloud Private Relay 这类通道，任何配置都管不到**，这份也不例外。
 
+## 手动规则
+
+想让某个域名固定走直连或代理，改仓库根目录的 `custom-rules.txt`，每行一条，文件里有完整格式说明：
+
+```
+DOMAIN-SUFFIX,example.com,DIRECT
+DOMAIN-SUFFIX,example.org,PROXY
+```
+
+构建时这批规则会被内嵌进两份配置，位置在全部远程规则表之前，优先级高于上游名单：名单里是直连的，可以手动改成代理，反过来也一样。
+
+两条边界：
+
+- 上游写在配置本地的功能规则（局域网、localhost 这类）排在手动规则前面，不受影响；
+- 去广告版里广告规则（REJECT）排在最前面，被广告规则命中的域名，手动指定直连也不会放行，省得广告域名借手动规则绕过去。
+
+构建会逐条校验这个文件：策略只允许 DIRECT 或 PROXY，同一个目标不许写两条，IP 段规则必须带 `no-resolve`。写错一行，整轮构建失败，线上继续用上一版。文件里只有注释时，成品里只多两行标记注释，行为和没有手动规则完全一致。
+
 ## 自动更新
 
 成品文件都是 GitHub Actions 每天自动生成的，流程是固定的：
@@ -139,6 +157,7 @@ FINAL,PROXY,force-remote-dns
 | `lazy-dns.conf` | 版本一成品，Actions 自动生成 |
 | `lazy-dns-ad.conf` | 版本二成品，Actions 自动生成 |
 | `rules/` | 四张规则镜像，Actions 自动生成 |
+| `custom-rules.txt` | 手动直连/代理规则，构建时内嵌进两份成品 |
 | `patch.py` | 基础版的构建脚本：DNS 补丁和镜像引用 |
 | `patch_ad.py` | 去广告版的构建脚本：补丁加广告规则内嵌 |
 | `patch_lists.py` | 镜像的构建脚本：给 IP 规则补 `no-resolve` |
