@@ -23,43 +23,23 @@
 
 这个仓库只提供配置和规则，节点需要自己准备。
 
-### 版本一：懒人配置 + DNS 国内外分流
+两个版本左右排在同一张表里，左边基础版，右边去广告版。订阅地址只有一条线：GitHub Raw，直接读仓库文件，没有中间缓存层，仓库一更新，拉到的就是最新版。
 
-| 线路 A · jsDelivr | 线路 B · GitHub Raw |
+| 版本一：懒人配置 + DNS 国内外分流 | 版本二：懒人配置 + DNS 国内外分流 + 去广告 |
 | :---: | :---: |
-| <img src="qrcode.png" width="190" alt="版本一 jsDelivr 二维码"> | <img src="qrcode-raw.png" width="190" alt="版本一 Raw 二维码"> |
+| <img src="qrcode-raw.png" width="190" alt="版本一二维码"> | <img src="qrcode-ad-raw.png" width="190" alt="版本二二维码"> |
 
-线路 A（CDN 分发，国内可以直接打开）：
-
-```text
-https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns.conf
-```
-
-线路 B（直接读仓库文件，没有缓存延迟，国内打开可能需要代理）：
+版本一订阅地址：
 
 ```text
 https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf
 ```
 
-### 版本二：懒人配置 + DNS 国内外分流 + 去广告
-
-| 线路 A · jsDelivr | 线路 B · GitHub Raw |
-| :---: | :---: |
-| <img src="qrcode-ad.png" width="190" alt="版本二 jsDelivr 二维码"> | <img src="qrcode-ad-raw.png" width="190" alt="版本二 Raw 二维码"> |
-
-线路 A（CDN 分发，国内可以直接打开）：
-
-```text
-https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/lazy-dns-ad.conf
-```
-
-线路 B（直接读仓库文件，没有缓存延迟，国内打开可能需要代理）：
+版本二订阅地址：
 
 ```text
 https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf
 ```
-
-两条线路的内容是同一份文件。jsDelivr 这条每次同步后都会刷新缓存并校验内容，和仓库对不上会报错，不会悄悄发旧文件。
 
 ## 导入
 
@@ -144,11 +124,11 @@ DOMAIN-SUFFIX,example.org,PROXY
 3. 打 DNS 补丁，生成基础版；再内嵌广告规则，生成去广告版，条数逐条点清；
 4. 全量检查 IP 规则的 `no-resolve` 覆盖；
 5. 全部通过才提交。任何一步对不上，整轮失败，线上继续用上一版；
-6. 提交之后刷新 jsDelivr 缓存，再把六个文件（两份成品加四张镜像）逐个和仓库比对 SHA-256，不一致就重试，三轮还不一致，这次运行标失败。
+6. 提交即生效：订阅地址和配置里引用的四张镜像都走 GitHub Raw、直接读仓库文件，没有缓存分发层，不存在缓存发旧版的问题。
 
-每天北京时间约 09:07 跑一次。另外每周一约 11:17 有一次健康检查，把上游文件、配置引用的全部规则集、还有自家这六个分发文件逐个访问一遍，哪个打不开就报错。
+每天北京时间约 09:07 跑一次。另外每周一约 11:17 有一次健康检查，把上游文件、配置引用的全部规则集、还有自家六个文件（两份成品加四张镜像）逐个访问一遍，哪个打不开就报错。
 
-自动检查管的是格式、条数、规则完整性和分发一致性，上游规则的内容本身没有人工逐条审核。GitHub 定时任务和 CDN 节点同步偶尔有几分钟延迟，属于平台层面的事，校验能发现、能报错，延迟本身消不掉。
+自动检查管的是格式、条数和规则完整性，上游规则的内容本身没有人工逐条审核。GitHub 定时任务偶尔有几分钟延迟，属于平台层面的事。
 
 ## 文件一览
 
