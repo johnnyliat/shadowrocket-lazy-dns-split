@@ -54,16 +54,16 @@ FINAL,PROXY,force-remote-dns
 ```
 
 - **兜底规则改为远端解析**：`FINAL,PROXY,force-remote-dns`，没被命中的域名全部走代理、远端解析。
-- **IP 规则不再触发本地解析**：`GEOIP,CN,DIRECT,no-resolve`，以及自托管的四张规则镜像（见下），保证匹配规则时不会顺手把域名解析一遍。
+- **IP 规则不再触发本地解析**：`GEOIP,CN,DIRECT,no-resolve`，以及自托管的规则表镜像（见下），保证匹配规则时不会顺手把域名解析一遍。
 - **不退回运营商 DNS**：删掉 `fallback-dns-server` 并设 `dns-fallback-system = false`，国内加密 DNS 全挂了也不会悄悄换成明文的运营商 DNS。
 - **关闭 IPv6 解析**：`ipv6 = false`，避免 IPv6 通道绕过分流。
 - 两家 DoH 同时使用，一家出问题时解析不中断；查询内容走 HTTPS，但两家解析商本身看得到查询记录。
 
-### 四张规则表的镜像
+### 规则表的镜像
 
 这是整个方案里最关键的一步。四张表是 QuantumultX 格式，IP 规则没有 `no-resolve`，在 QuantumultX 里这是常规写法，配合本配置的判定顺序却会触发本地解析。官方 Shadowrocket 格式的同名表是精简版（Global 表只有 211 行，完整版约 3.6 万行），直接换过去会丢掉大量分流覆盖。
 
-所以本仓库每天把四张原表同步一份到 `rules/`：**内容逐行保持一致，只给 IP 规则补上 `no-resolve`**。既保住完整的分流覆盖，又堵住了本地解析。构建脚本逐行对比输入输出，出现任何其他差异都会失败。
+所以本仓库每天把四张原表同步一份到 `rules/`：**内容逐行保持一致，只给 IP 规则补上 `no-resolve`**。既保住完整的分流覆盖，又堵住了本地解析。其余 30 张表是 Shadowrocket 格式，IP 规则本就带 `no-resolve`，同样逐行镜像、不做改动——成品引用的全部 34 张表都在本仓库里，客户端取到的就是构建时检查过的那一份，上游的实时变化不会绕过检查直达客户端。构建脚本逐行对比输入输出，出现任何其他差异都会失败。
 
 ## 优势
 
@@ -132,9 +132,9 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 **自动更新的流程**（GitHub Actions，每天北京时间约 09:07）：
 
 1. 拉取上游最新的 `lazy.conf` 和 `sr_ad_only.conf`。
-2. 同步四张规则表，补好 `no-resolve`。
+2. 同步全部 34 张规则表做镜像，补好 `no-resolve`。
 3. 打 DNS 补丁，生成基础版；再内嵌广告规则，生成去广告版。
-4. 全量检查引用的规则表，IP 规则必须全部带 `no-resolve`。
+4. 全量检查引用的规则表（IP 规则必须全部带 `no-resolve`），并做结构安检：成品骨架出现预期之外的变化即停。
 5. 全部通过才提交，任何一步不对，整轮失败，线上保持上一版。
 
 另外每周一约 11:17 有一次健康检查，把上游文件、引用的规则表和自家文件逐个访问一遍。
@@ -142,9 +142,10 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 **使用前了解几点：**
 
 - **未知域名默认走代理。** 这是防泄露的关键，也是一个取舍：常用国内应用在上游规则里都有单独分流，不受影响，但少数没被收录的小众国内站点会绕一圈代理，个别站点可能因为出口 IP 在境外而受限。
-- **有几处有意保留的例外**：Apple 和 iCloud 域名走系统 DNS（保证 App Store、iCloud 的稳定）；两家加密 DNS 都不可达时，直连域名可借代理解析（避免 DNS 故障直接断网）；上游 `skip-proxy` 里的局域网段、三家银行域名和个别门户站点按系统路径直走（银行 App 兼容）。
+- **有几处有意保留的例外**：Apple 和 iCloud 域名走系统 DNS（保证 App Store、iCloud 的稳定）；两家加密 DNS 都不可达时，直连域名可借代理解析（避免 DNS 故障直接断网）；上游 `skip-proxy` 里的局域网段、三家银行域名和个别门户站点不发给代理服务器、由 TUN 接口按直连处理（银行 App 兼容）。
 - **配置管不到的通道**：DoH 地址本身（`dns.alidns.com`、`doh.pub`）是域名，首次连接前要先解析，这一步不由本配置控制；App 内置的加密 DNS、iCloud 专用代理（Private Relay）等，任何配置都管不到；浏览器之外的 App、系统服务产生的查询，上面的检测网站测不到，想验证得抓包。
-- **规则内容来自上游**：自动检查保证的是格式、条数和规则完整性，上游规则本身没有人工逐条审核。
+- **规则内容来自上游**：自动检查保证的是格式、结构、条数和规则完整性，上游规则本身没有人工逐条审核。
+- **成品带有维护者自用的少量附加规则**（个别银行域名直连等），清单在 `custom-rules.txt` 里公开，不影响一般使用。
 
 ---
 
@@ -154,7 +155,8 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 |---|---|
 | `lazy-dns.conf` | 基础版成品，自动生成 |
 | `lazy-dns-ad.conf` | 去广告版成品，自动生成 |
-| `rules/` | 四张规则镜像，自动生成 |
+| `rules/` | 全部 34 张规则表的镜像，自动生成 |
+| `mirrors.txt` | 规则表镜像清单 |
 | `custom-rules.txt` | 附加规则，构建时内嵌进两份成品 |
 | `patch.py` | 基础版构建脚本 |
 | `patch_ad.py` | 去广告版构建脚本 |
@@ -186,4 +188,4 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 - [blackmatrix7 / ios_rule_script](https://github.com/blackmatrix7/ios_rule_script)：应用分流规则集
 - [DuskWander87 / shadowrocket-config](https://github.com/DuskWander87/shadowrocket-config)：DNS 分流思路的参考来源
 
-规则内容的版权归各上游所有，本仓库做的是 DNS 补丁、规则镜像和自动构建。仅供学习和个人使用，版权方面有问题请联系处理。
+规则内容的版权归各上游所有，本仓库做的是 DNS 补丁、规则镜像和自动构建。本仓库自有的脚本与文档以 MIT 许可证发布（见 `LICENSE` 文件）；上游配置、规则与数据仍归各自作者所有，遵循其原许可证。仅供学习和个人使用，版权方面有问题请联系处理。
