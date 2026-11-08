@@ -1,6 +1,6 @@
 name: Weekly rule-set health check
 
-# 每周一 UTC 03:17（北京时间 11:17）探活：上游文件、配置引用的全部远程规则集、自家六个文件；也可手动触发
+# 每周一 UTC 03:17（北京时间 11:17）探活：上游文件、上游配置引用的全部规则集、自家两份成品与其引用的全部镜像；也可手动触发
 # 名单不写死：每次运行时从最新 lazy.conf 现场提取 RULE-SET 链接，上游增删自动跟随
 # 自家文件走 GitHub Raw 直接读仓库、没有缓存层，能打开就是当前内容，不需要再做缓存一致性比对
 # 本工作流不检出代码、不写仓库，纯网络探活，所以不需要任何第三方 Action
@@ -41,11 +41,12 @@ jobs:
           echo "First-party files (GitHub Raw):"
           check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf"
           check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf"
-          for n in Apple China Global WeChat; do
-            check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/rules/$n.list"
-          done
+          curl -fsSL --retry 3 -o /tmp/lazy-dns.conf "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf"
+          grep -oE "RULE-SET,https://[^,]+" /tmp/lazy-dns.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/selfurls.txt
+          echo "Self-hosted rule-sets found: $(wc -l < /tmp/selfurls.txt)"
+          while IFS= read -r u; do check "$u"; done < /tmp/selfurls.txt
           if [ "$fail" -ne 0 ]; then
             echo "::error::Some upstream/rule-set URLs are unavailable (see FAIL lines above)."
             exit 1
           fi
-          echo "All URLs healthy."
+          echo "All URLs healthy.
