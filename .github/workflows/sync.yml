@@ -67,6 +67,8 @@ jobs:
           # 耐心等待约 3 分钟并如实记录结果，未收敛只警告、不判失败；
           # 内容一致性的硬校验移到每周健康检查（health.yml），在收敛窗口之后执行，不一致才真报警。
           ok=0
+          # 注意：整个循环只读校验、绝不重复 purge——jsDelivr 的 purge 接口有限流
+          # （实测返回 throttled、约 25 分钟重置），反复刷新只会延长限流、帮倒忙。
           for attempt in 1 2 3 4 5 6; do
             sleep 30
             ok=1
@@ -76,7 +78,6 @@ jobs:
               if [ "$want" != "$got" ]; then ok=0; fi
             done
             [ "$ok" = "1" ] && break
-            for f in $FILES; do curl -fsSL "https://purge.jsdelivr.net/gh/$REPO/$f" > /dev/null || true; done
           done
           if [ "$ok" = "1" ]; then
             echo "jsDelivr cache in sync with repo."
