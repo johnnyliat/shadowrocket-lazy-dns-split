@@ -21,3 +21,8 @@
 # DOMAIN-SUFFIX,example.com,DIRECT
 # DOMAIN-SUFFIX,example.org,PROXY
 # ================================================================
+
+# --- 2026-11-09 汇丰香港（HSBC HK）全系直连 ---
+# hsbc.com.hk 一个后缀覆盖官网、个人/商业网上银行、HSBC HK App、
+# PayMe（payme.hsbc.com.hk 及 payme-api-secure 等接口）在内的全部子域名。
+DOMAIN-SUFFIX,hsbc.com.hk,DIRECT
