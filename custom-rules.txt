@@ -22,7 +22,65 @@
 # DOMAIN-SUFFIX,example.org,PROXY
 # ================================================================
 
-# --- 2026-11-09 汇丰香港（HSBC HK）全系直连 ---
-# hsbc.com.hk 一个后缀覆盖官网、个人/商业网上银行、HSBC HK App、
-# PayMe（payme.hsbc.com.hk 及 payme-api-secure 等接口）在内的全部子域名。
+# --- 2026-11-09 汇丰集团（HSBC）全系直连 ---
+# 名单来源：v2fly/domain-list-community 的 hsbc 与 hsbc-cn 数据文件
+# （社区维护的汇丰官方域名全集，含各国分支与集团共享服务）。
+# 整组直连的原因：银行风控会关联同一客户在全部自有域名的出口 IP；
+# 只直连主站、让 App 的其他服务域名绕代理出美国，出口跳变反而更可疑。
+# 第三方共享基础设施（CDN、统计、推送）不在此列，不归银行会话关联。
+
+# 集团共享与顶级域（hsbc.com 为集团门户及共享服务，hsbc 为品牌顶级域）
+DOMAIN-SUFFIX,hsbc,DIRECT
+DOMAIN-SUFFIX,hsbc.com,DIRECT
+DOMAIN-SUFFIX,hsbc.net,DIRECT
+DOMAIN-SUFFIX,hsbcinnovationbanking.com,DIRECT
+DOMAIN-SUFFIX,hsbcnet.com,DIRECT
+DOMAIN-SUFFIX,hsbcprivatebank.com,DIRECT
+
+# 香港（含 PayMe 的专用域名 vv1865.com；PayMe 本体在 hsbc.com.hk 下）
 DOMAIN-SUFFIX,hsbc.com.hk,DIRECT
+DOMAIN-SUFFIX,vv1865.com,DIRECT
+
+# 中国内地
+DOMAIN-SUFFIX,hsbc.com.cn,DIRECT
+DOMAIN-SUFFIX,hsbcqh.com.cn,DIRECT
+DOMAIN-SUFFIX,hsbcinsurance.com.cn,DIRECT
+
+# 其他国家与地区分支
+DOMAIN-SUFFIX,hsbc.ae,DIRECT
+DOMAIN-SUFFIX,hsbc.am,DIRECT
+DOMAIN-SUFFIX,hsbc.bm,DIRECT
+DOMAIN-SUFFIX,hsbc.ca,DIRECT
+DOMAIN-SUFFIX,hsbc.co.id,DIRECT
+DOMAIN-SUFFIX,hsbc.co.in,DIRECT
+DOMAIN-SUFFIX,hsbc.co.jp,DIRECT
+DOMAIN-SUFFIX,hsbc.co.kr,DIRECT
+DOMAIN-SUFFIX,hsbc.co.mu,DIRECT
+DOMAIN-SUFFIX,hsbc.co.nz,DIRECT
+DOMAIN-SUFFIX,hsbc.co.th,DIRECT
+DOMAIN-SUFFIX,hsbc.co.uk,DIRECT
+DOMAIN-SUFFIX,hsbc.uk,DIRECT
+DOMAIN-SUFFIX,hsbc.com.ar,DIRECT
+DOMAIN-SUFFIX,hsbc.com.au,DIRECT
+DOMAIN-SUFFIX,hsbc.com.bd,DIRECT
+DOMAIN-SUFFIX,hsbc.com.bh,DIRECT
+DOMAIN-SUFFIX,hsbc.com.br,DIRECT
+DOMAIN-SUFFIX,hsbc.com.eg,DIRECT
+DOMAIN-SUFFIX,hsbc.com.mo,DIRECT
+DOMAIN-SUFFIX,hsbc.com.mt,DIRECT
+DOMAIN-SUFFIX,hsbc.com.mx,DIRECT
+DOMAIN-SUFFIX,hsbc.com.my,DIRECT
+DOMAIN-SUFFIX,hsbcamanah.com.my,DIRECT
+DOMAIN-SUFFIX,hsbc.com.ph,DIRECT
+DOMAIN-SUFFIX,hsbc.com.sg,DIRECT
+DOMAIN-SUFFIX,hsbc.com.tr,DIRECT
+DOMAIN-SUFFIX,hsbc.com.tw,DIRECT
+DOMAIN-SUFFIX,hsbc.com.uy,DIRECT
+DOMAIN-SUFFIX,hsbc.com.vn,DIRECT
+DOMAIN-SUFFIX,hsbc.de,DIRECT
+DOMAIN-SUFFIX,hsbc-alternatives.de,DIRECT
+DOMAIN-SUFFIX,hsbc-transactionservices.de,DIRECT
+DOMAIN-SUFFIX,hsbc-zertifikate.de,DIRECT
+DOMAIN-SUFFIX,hsbc.lk,DIRECT
+DOMAIN-SUFFIX,hsbc.fr,DIRECT
+DOMAIN-SUFFIX,hsbctrinkaus.de,DIRECT
