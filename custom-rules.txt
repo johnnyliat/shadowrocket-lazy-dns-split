@@ -1,0 +1,23 @@
+# ================================================================
+# 手动规则：想让某个域名固定走直连或代理，把它写在这里。
+#
+# 每日构建时，本文件会被内嵌进 lazy-dns.conf 和 lazy-dns-ad.conf，
+# 位置在全部远程规则表之前：手动规则优先于上游名单，
+# 但在去广告版里，广告拦截（REJECT）仍然比手动规则更优先。
+#
+# 格式（每行一条，# 开头的是注释，不生效）：
+#   DOMAIN-SUFFIX,域名,DIRECT       该域名及全部子域名走直连
+#   DOMAIN-SUFFIX,域名,PROXY        该域名及全部子域名走代理
+#   DOMAIN,完整主机名,DIRECT        只管这一个主机名（PROXY 同理）
+#   DOMAIN-KEYWORD,关键词,PROXY     域名里含关键词的走代理（DIRECT 同理）
+#   IP-CIDR,IP段,DIRECT,no-resolve  按 IP 段直连，必须带 no-resolve
+#
+# 构建时逐条校验，不合规整轮构建失败、问题配置不会出厂：
+#   - 策略只允许 DIRECT 或 PROXY
+#   - 同一个目标只能有一条规则（不能既直连又代理）
+#   - IP 段必须合法，且必须以 ,no-resolve 结尾
+#
+# 示例（已注释，不生效）：
+# DOMAIN-SUFFIX,example.com,DIRECT
+# DOMAIN-SUFFIX,example.org,PROXY
+# ================================================================

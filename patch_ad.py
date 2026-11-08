@@ -15,8 +15,7 @@
   3) 自检: 每一步都有断言与计数核对；任一不符即 exit 1，不写出文件。
      这样任一上游改格式，Actions 会失败报警，而不是把半成品推给客户端。
 """
-import re
-import sys
+import ipaddress, os, re, sys
 
 DUAL_DOH = "https://dns.alidns.com/dns-query,https://doh.pub/dns-query"
 
@@ -27,6 +26,47 @@ QX_LISTS = {
     "WeChat": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/QuantumultX/WeChat/WeChat.list",
 }
 SELF_HOSTED = "https://cdn.jsdelivr.net/gh/johnnyliat/shadowrocket-lazy-dns-split@main/rules/{name}.list"
+CUSTOM_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "custom-rules.txt")
+CUSTOM_DOMAIN_TYPES = {"DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD"}
+CUSTOM_IP_TYPES = {"IP-CIDR", "IP-CIDR6", "IP6-CIDR"}
+
+def load_custom_rules():
+    """读取仓库根目录的 custom-rules.txt（手动规则），严格校验后返回规则行。
+
+    文件不存在 -> 空表（功能关闭）；文件存在但任一行不合规 -> fail，
+    整轮构建失败、不出厂。内嵌位置：[Rule] 第一张远程规则表之前，
+    优先于全部远程名单，但不越过上游本地功能规则（去广告版里也不越过广告拦截）。
+    """
+    if not os.path.exists(CUSTOM_FILE):
+        return []
+    rules, seen = [], {}
+    for lineno, raw in enumerate(open(CUSTOM_FILE, encoding="utf-8"), 1):
+        s = raw.strip()
+        if not s or s.startswith("#"):
+            continue
+        parts = [x.strip() for x in s.split(",")]
+        typ = parts[0].upper()
+        if len(parts) < 3 or typ not in CUSTOM_DOMAIN_TYPES | CUSTOM_IP_TYPES:
+            fail(f"custom-rules.txt 第 {lineno} 行格式不支持: {s!r}")
+        value, policy = parts[1], parts[2].upper()
+        if policy not in ("DIRECT", "PROXY"):
+            fail(f"custom-rules.txt 第 {lineno} 行策略只允许 DIRECT 或 PROXY: {s!r}")
+        if typ in CUSTOM_IP_TYPES:
+            if len(parts) != 4 or parts[3].lower() != "no-resolve":
+                fail(f"custom-rules.txt 第 {lineno} 行 IP 规则必须写成 TYPE,段,DIRECT/PROXY,no-resolve: {s!r}")
+            try:
+                ipaddress.ip_network(value, strict=False)
+            except ValueError:
+                fail(f"custom-rules.txt 第 {lineno} 行 IP 段不合法: {s!r}")
+        elif len(parts) != 3 or not value or " " in value or "/" in value:
+            fail(f"custom-rules.txt 第 {lineno} 行域名规则格式不对: {s!r}")
+        key = (typ, value.lower())
+        if key in seen:
+            fail(f"custom-rules.txt 第 {lineno} 行与第 {seen[key]} 行重复或冲突（同一目标只能有一条规则）: {s!r}")
+        seen[key] = lineno
+        rules.append(f"{typ},{value},{policy}" + (",no-resolve" if typ in CUSTOM_IP_TYPES else ""))
+    return rules
+
 AD_LINE = re.compile(r"^(DOMAIN-SUFFIX|IP-CIDR),([^,]+),Reject$")
 
 def fail(msg):
@@ -60,9 +100,11 @@ def load_ad_rules(path):
 
 def main(lazy_path, ad_path, out_path):
     ad_rules = load_ad_rules(ad_path)
+    custom_rules = load_custom_rules()
     lines = open(lazy_path, encoding="utf-8").read().splitlines()
     out, section = [], None
     done = set()
+    custom_done = False
     for raw in lines:
         s = raw.strip()
         if s.startswith("[") and s.endswith("]"):
@@ -74,6 +116,13 @@ def main(lazy_path, ad_path, out_path):
                 out.append("# ===== 去广告规则结束，以下为 lazy.conf 原有分流规则 =====")
                 done.add("ad")
             continue
+
+        if section == "[Rule]" and not custom_done and s.startswith("RULE-SET,"):
+            out.append("# ===== 手动规则（custom-rules.txt，优先于全部远程规则表）=====")
+            out.extend(custom_rules)
+            out.append("# ===== 手动规则结束 =====")
+            custom_done = True
+            done.add("custom")
 
         if section == "[General]" and s.startswith("dns-server ="):
             out.append("# [DNS分流补丁] 本地解析全程加密 DoH（阿里+腾讯），不用明文 UDP：运营商看不到查询内容，伪造应答会被 TLS 识破。")
@@ -124,7 +173,7 @@ def main(lazy_path, ad_path, out_path):
 
         out.append(raw)
 
-    missing = {"dns", "fallback", "ipv6", "geoip", "final", "ad",
+    missing = {"dns", "fallback", "ipv6", "geoip", "final", "ad", "custom",
                "ruleset_Apple", "ruleset_China", "ruleset_Global", "ruleset_WeChat"} - done
     if missing:
         fail(f"锚点缺失，上游格式可能已变化，未完成的步骤: {sorted(missing)}")
@@ -165,6 +214,17 @@ def main(lazy_path, ad_path, out_path):
     if not rule_active or rule_active[-1] != "FINAL,PROXY,force-remote-dns":
         fail("FINAL 不是 [Rule] 最后一条规则")
 
+
+    # 手动规则块必须存在、位于第一张远程规则表之前，且规则完整内嵌
+    _h = text.find("# ===== 手动规则（custom-rules.txt")
+    _f = text.find("# ===== 手动规则结束 =====")
+    _rs = text.find("\nRULE-SET,")
+    if _h < 0 or _f < 0 or not (_h < _f < _rs):
+        fail("手动规则块缺失或位置异常（应在第一张远程规则表之前）")
+    _inner = "\n" + text[_h:_f] + "\n"
+    for _r in custom_rules:
+        if f"\n{_r}\n" not in _inner:
+            fail(f"手动规则未完整内嵌: {_r}")
     header = (
         "# ============================================================\n"
         "# lazy.conf（无策略组版）+ DNS 国内外分流补丁 + 去广告规则（自动生成，请勿手动编辑此文件）\n"
@@ -173,6 +233,7 @@ def main(lazy_path, ad_path, out_path):
         "#       （懒人配置同步自 LOWERTOP/Shadowrocket，版权与署名归上游所有）\n"
         f"# 内容: lazy 分流规则 + sr_ad_only 去广告规则 {len(ad_rules)} 条全量内嵌于 [Rule] 最前面（REJECT）；\n"
         "#       DNS 仅改机制（以 [DNS分流补丁] 注释标出），其余与上游逐字一致。\n"
+        "#       另内嵌 custom-rules.txt 手动直连/代理规则于全部远程规则表之前（优先于名单，广告拦截仍更优先）。\n"
         "#   国内: dns-server / direct-dns-server / proxy-dns-server = 阿里 DoH + 腾讯 DoH（加密）\n"
         "#   国外: 无本地解析 —— GEOIP 加 no-resolve、FINAL,PROXY,force-remote-dns 交节点远端解析；\n"
         "#         删除 fallback-dns-server 并设 dns-fallback-system = false（fail-closed）；ipv6 = false；\n"
