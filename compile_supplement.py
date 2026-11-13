@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """compile_supplement.py — 编译直连补集：把多家上游的"国内直连"判断，
-融合成两张自托管规则表（SupplementA.list / SupplementB.list），供成品引用。
+融合成一张自托管规则表（SupplementA.list），供成品引用。
 
 为什么需要补集:
   懒人配置的直连名单（blackmatrix7 服务表 + QX China 表）覆盖有限，
@@ -9,22 +9,20 @@
   所以本脚本不做"搬运"，做"编译 + 双边校验"。
 
 输入源（全部每天现取）:
-  A 层「常用直连」:
-    - v2fly/domain-list-community 的 data/cn（递归展开 include:，
-      即 tld-cn + geolocation-cn 下全部 *-cn 分类）
-    - ACL4SSR 的 AccelerateDirectSites / GoogleCN / ChinaOneKeyLogin /
-      ChinaDNS / ChinaNet 五张精选表
-  B 层「@cn 精准直连」:
-    - v2fly 全库中带 @cn 属性的条目（社区明确标注"中国有接入点"）
-    - ACL4SSR 精选表中被代理表覆盖的条目（同属"有国内接入点故应直连"的判断）
+  - v2fly/domain-list-community 的 data/cn（递归展开 include:，
+    即 tld-cn + geolocation-cn 下全部 *-cn 分类）
+  - ACL4SSR 的 AccelerateDirectSites / GoogleCN / ChinaOneKeyLogin /
+    ChinaDNS / ChinaNet 五张精选表
 
 双边校验（不误伤的核心）:
   一条候选域名判直连，当且仅当——国内源主张它，并且没有任何一方反对它。
   反对证据 = 它已被直连表覆盖（重复）、被去广告表覆盖（广告域）、
-  被手动规则或上游本地规则覆盖（已有明确判定）；A 层 additionally 要求
-  不被任何代理表覆盖（有国外证据的，一律判回代理）；B 层是唯一的例外：
-  @cn 证据明确，允许覆盖代理表的判断（成品里 B 层排在代理表之前）。
-  另：带 @ads 标记的条目（社区标注的广告/追踪域）两层都不要。
+  被手动规则或上游本地规则覆盖（已有明确判定），或被任何代理表覆盖
+  （有国外证据的，一律判回代理）。代理证据一票否决，没有例外：
+  同一个服务的端点必须同走代理、同走直连，不拆分——某服务的部分端点
+  直连、其余走代理，会让该服务同时看到真实 IP 与代理出口 IP，起不到
+  隔离作用。故本脚本不设任何凌驾于代理表之上的直连层。
+  另：带 @ads 标记的条目（社区标注的广告/追踪域）不要。
 
 丢弃（计数并报告，不静默）:
   - regexp: 条目：Shadowrocket 规则表表达不了正则；
@@ -33,16 +31,15 @@
 
 出厂守卫（任一不符 exit 1，整轮构建失败、线上保持上一版）:
   - 输出行只允许 DOMAIN-SUFFIX / DOMAIN 两种，且域名合法；
-  - A/B 与各自的"已有判定"覆盖零重叠（减法算完再断言一遍）；
-  - A 与 B 互不重叠（B 优先，重复的归 B）；
+  - 与"已有判定"覆盖零重叠（减法算完再断言一遍）；
   - 数量下限/上限 + 与上一版相比波动超过 40% 即失败（防上游异常删减）。
 
 用法（在仓库根目录运行；CI 里 patch_lists.py 之后、patch.py 之前）:
   python3 compile_supplement.py --v2fly-dir <domain-list-community/data>
       --lazy <上游 lazy.conf> --ad <上游 sr_ad_only.conf>
   v2fly 数据由工作流用 git clone --depth 1 现取（约 7MB），ACL4SSR 五张表
-  由本脚本联网拉取（3 次重试）。输出写 rules/SupplementA.list 与
-  rules/SupplementB.list（与成品引用的自托管镜像同目录）。
+  由本脚本联网拉取（3 次重试）。输出写 rules/SupplementA.list
+  （与成品引用的自托管镜像同目录）。
 """
 import argparse
 import ipaddress
@@ -61,10 +58,9 @@ ACL4SSR_LISTS = ["Ruleset/AccelerateDirectSites.list", "Ruleset/GoogleCN.list",
                  "Ruleset/ChinaOneKeyLogin.list", "Ruleset/ChinaDNS.list",
                  "Ruleset/ChinaNet.list"]
 
-# 数量守卫：下限/上限留足余量（2026-11-13 实测 A 约 1673、B 约 322），
+# 数量守卫：下限/上限留足余量（2026-11-13 实测 A 层 3,047 条），
 # 防的是上游断供/格式剧变，不是卡精确值；波动阈值取 40%（与 NZNL31 同口径）。
 MIN_A, MAX_A = 800, 6000
-MIN_B, MAX_B = 150, 1200
 MAX_DRIFT = 0.40
 
 DOMAIN_RE = re.compile(r"^[a-z0-9._-]+$")
@@ -192,6 +188,8 @@ def load_earlier_coverage(lazy_path, ad_path, custom_path, manifest_path, rules_
     for url, policy in policies.items():
         if url not in mirrors:
             fail(f"上游规则表不在 mirrors.txt 清单内: {url}")
+        if policy not in ("DIRECT", "PROXY"):
+            fail(f"上游规则表策略不是 DIRECT/PROXY，需人工确认覆盖归属: {url} -> {policy}")
         path = os.path.join(rules_dir, os.path.basename(mirrors[url]))
         if not os.path.exists(path):
             fail(f"镜像文件不存在（patch_lists.py 须先运行）: {path}")
@@ -314,28 +312,6 @@ def expand_cn_tree(data_dir):
     return collected
 
 
-def scan_cn_attributes(data_dir):
-    """全库扫描 @cn：只认写在条目自己行上的 @cn。
-    不认文件级继承：category-food-cn 用 include:starbucks @cn 把整个
-    Starbucks 文件划入中国分类，但文件里还有 starbucks.ie、starbucks.co.za
-    这类外国域名——文件级标记是分类上的方便，不是"每条都有中国接入点"的
-    证据。B 层的存在理由就是"逐条明确证据"，不能用文件级标记充数。
-    （中国境内的星巴克/麦当劳域名另有 cn 树与 .cn 兜底覆盖，不会因此丢失。）
-    @ads 同理只认自有行：广告分类的 include:X @ads 是分类语义。"""
-    out = {}
-    for fname in os.listdir(data_dir):
-        path = os.path.join(data_dir, fname)
-        if not os.path.isfile(path):
-            continue
-        for kind, value, attrs in read_v2fly_file(data_dir, fname):
-            if kind == "include":
-                continue
-            if "@cn" in attrs:
-                k = (kind, value)
-                out[k] = out.get(k, frozenset()) | attrs
-    return out
-
-
 def load_acl4ssr():
     """拉取 ACL4SSR 五张精选表，返回 [(kind, value)]（只留域名规则；
     IP 与关键字规则计数丢弃）。"""
@@ -421,12 +397,11 @@ def main():
     print(f"已有判定覆盖: 直连后缀 {len(cov['direct'].suffixes)} / 代理后缀 "
           f"{len(cov['proxy'].suffixes)} / 去广告后缀 {len(cov['ad'].suffixes)}")
 
-    # ---- 候选：v2fly cn 树 + @cn 扫描 + ACL4SSR ----
+    # ---- 候选：v2fly cn 树 + ACL4SSR ----
     cn_tree = expand_cn_tree(args.v2fly_dir)
-    cn_scan = scan_cn_attributes(args.v2fly_dir)
     acl, acl_ip, acl_kw = load_acl4ssr()
-    print(f"v2fly cn 树: {len(cn_tree)} 条目；@cn 扫描: {len(cn_scan)} 条目；"
-          f"ACL4SSR: {len(acl)} 条（丢弃 IP {acl_ip} / 关键字 {acl_kw}）")
+    print(f"v2fly cn 树: {len(cn_tree)} 条目；ACL4SSR: {len(acl)} 条"
+          f"（丢弃 IP {acl_ip} / 关键字 {acl_kw}）")
 
     dropped_re, dropped_kw, dropped_ads = 0, 0, 0
 
@@ -450,7 +425,7 @@ def main():
     def blocked_by(covsets, kind, value):
         return any(c.covers_candidate(kind, value) for c in covsets)
 
-    # A 层：cn 树 + ACL4SSR（非代理覆盖者），减去全部已有判定
+    # 补集：cn 树 + ACL4SSR，减去全部已有判定（含代理覆盖——代理证据一票否决）
     a_raw = usable(cn_tree)
     a_blocked_proxy_only = a_blocked_other_only = a_blocked_both = 0
     layer_a = []
@@ -466,60 +441,42 @@ def main():
             a_blocked_other_only += 1
         else:
             layer_a.append((kind, value))
-    # ACL4SSR：被代理覆盖的归 B（有证据的覆盖），其余的归 A
-    acl_to_b, acl_blocked = [], 0
+    acl_proxy_dropped, acl_blocked = 0, 0
     for kind, value in acl:
         if blocked_by([cov["direct"], cov["ad"], cov["manual"], cov["local"]],
                       kind, value):
             acl_blocked += 1
             continue
         if blocked_by([cov["proxy"]], kind, value):
-            acl_to_b.append((kind, value))
-        else:
-            layer_a.append((kind, value))
-    # B 层：@cn 扫描 + ACL4SSR 被代理覆盖者，减去直连/广告/手动/本地（不减代理）
-    b_raw = usable(cn_scan) + acl_to_b
-    layer_b = [e for e in b_raw
-               if not blocked_by([cov["direct"], cov["ad"], cov["manual"],
-                                  cov["local"]], e[0], e[1])]
+            # 有代理证据：判回代理，不补（服务不拆分，无例外层）
+            acl_proxy_dropped += 1
+            continue
+        layer_a.append((kind, value))
     print(f"丢弃: 正则 {dropped_re} / 关键字 {dropped_kw} / @ads {dropped_ads}；"
-          f"A 层拦下：仅代理证据 {a_blocked_proxy_only}、仅其他已有判定 "
+          f"cn 树拦下：仅代理证据 {a_blocked_proxy_only}、仅其他已有判定 "
           f"{a_blocked_other_only}、两者都有 {a_blocked_both}；ACL4SSR 被已有判定拦下 "
-          f"{acl_blocked}、归入 B 层 {len(acl_to_b)} 条")
+          f"{acl_blocked}、被代理证据拦下 {acl_proxy_dropped}")
 
-    # B 优先：两层重复的归 B，A 里去掉
-    b_set = set(layer_b)
-    layer_a = [e for e in layer_a if e not in b_set]
-    layer_a, layer_b = collapse(layer_a), collapse(layer_b)
-    if set(layer_a) & set(layer_b):
-        fail("A/B 层仍有重叠，折叠逻辑异常")
-    print(f"补集规模: A 层 {len(layer_a)} 条，B 层 {len(layer_b)} 条")
+    layer_a = collapse(layer_a)
+    print(f"补集规模: A 层 {len(layer_a)} 条")
 
     # ---- 出厂守卫 ----
-    for kind, value in layer_a + layer_b:
+    for kind, value in layer_a:
         if kind not in ("suffix", "exact") or not DOMAIN_RE.match(value):
             fail(f"补集出现非法条目: {kind},{value}")
     for kind, value in layer_a:
         if blocked_by([cov["direct"], cov["proxy"], cov["ad"], cov["manual"],
                        cov["local"]], kind, value):
             fail(f"A 层与已有判定重叠: {kind},{value}")
-    for kind, value in layer_b:
-        if blocked_by([cov["direct"], cov["ad"], cov["manual"], cov["local"]],
-                      kind, value):
-            fail(f"B 层与已有判定重叠: {kind},{value}")
     if not (MIN_A <= len(layer_a) <= MAX_A):
         fail(f"A 层数量 {len(layer_a)} 超出 [{MIN_A},{MAX_A}]")
-    if not (MIN_B <= len(layer_b) <= MAX_B):
-        fail(f"B 层数量 {len(layer_b)} 超出 [{MIN_B},{MAX_B}]")
     out_a = os.path.join(args.rules_dir, "SupplementA.list")
-    out_b = os.path.join(args.rules_dir, "SupplementB.list")
-    for path, count, name in ((out_a, len(layer_a), "A"), (out_b, len(layer_b), "B")):
-        prev = read_previous(path)
-        if prev:
-            drift = abs(count - prev) / prev
-            print(f"{name} 层波动: 上一版 {prev} -> 本版 {count}（{drift:.0%}）")
-            if drift > MAX_DRIFT:
-                fail(f"{name} 层波动 {drift:.0%} 超过 {MAX_DRIFT:.0%}，疑似上游异常")
+    prev = read_previous(out_a)
+    if prev:
+        drift = abs(len(layer_a) - prev) / prev
+        print(f"A 层波动: 上一版 {prev} -> 本版 {len(layer_a)}（{drift:.0%}）")
+        if drift > MAX_DRIFT:
+            fail(f"A 层波动 {drift:.0%} 超过 {MAX_DRIFT:.0%}，疑似上游异常")
 
     # ---- 写出（全部校验通过后才写）----
     def render(entries, title, sources):
@@ -537,10 +494,7 @@ def main():
     with open(out_a, "w", encoding="utf-8", newline="\n") as f:
         f.write(render(layer_a, "SupplementA（常用直连补集）",
                        "v2fly/domain-list-community data/cn + ACL4SSR 精选表"))
-    with open(out_b, "w", encoding="utf-8", newline="\n") as f:
-        f.write(render(layer_b, "SupplementB（@cn 精准直连补集）",
-                       "v2fly 全库 @cn 属性条目 + ACL4SSR 精选表被代理覆盖者"))
-    print(f"OK: SupplementA {len(layer_a)} / SupplementB {len(layer_b)} -> {args.rules_dir}")
+    print(f"OK: SupplementA {len(layer_a)} -> {args.rules_dir}")
 
 
 if __name__ == "__main__":

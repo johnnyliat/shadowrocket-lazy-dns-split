@@ -1,7 +1,7 @@
 # SupplementA（常用直连补集）：直连补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
 # 来源：v2fly/domain-list-community data/cn + ACL4SSR 精选表；双边校验后仅含未被已有判定覆盖的域名规则。
 # 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
-# 条数：3047
+# 条数：3056
 DOMAIN,api.blipsandchitz.me
 DOMAIN,ctdsb.clouddiffuse.xyz
 DOMAIN,end-api.shallow.ink
@@ -243,6 +243,9 @@ DOMAIN-SUFFIX,alookweb.com
 DOMAIN-SUFFIX,aloys233.top
 DOMAIN-SUFFIX,amap.net
 DOMAIN-SUFFIX,amemv.net
+DOMAIN-SUFFIX,amzndns-cn.biz
+DOMAIN-SUFFIX,amzndns-cn.com
+DOMAIN-SUFFIX,amzndns-cn.net
 DOMAIN-SUFFIX,analog.com
 DOMAIN-SUFFIX,anav.com
 DOMAIN-SUFFIX,anhuinews.com
@@ -570,6 +573,7 @@ DOMAIN-SUFFIX,cdrcbank.com
 DOMAIN-SUFFIX,cdut.top
 DOMAIN-SUFFIX,celersyn.com
 DOMAIN-SUFFIX,centuryenglish.com
+DOMAIN-SUFFIX,cf-china.info
 DOMAIN-SUFFIX,cfc108.com
 DOMAIN-SUFFIX,cftsupport.com
 DOMAIN-SUFFIX,cg3da.com
@@ -639,6 +643,9 @@ DOMAIN-SUFFIX,cldisk.com
 DOMAIN-SUFFIX,cleargrass.com
 DOMAIN-SUFFIX,clewm.net
 DOMAIN-SUFFIX,cli.im
+DOMAIN-SUFFIX,cloudflareanycast.net
+DOMAIN-SUFFIX,cloudflareglobal.net
+DOMAIN-SUFFIX,cloudflareperf.com
 DOMAIN-SUFFIX,cmdcxls.com
 DOMAIN-SUFFIX,cmicapm.com
 DOMAIN-SUFFIX,cmpay.com
@@ -1359,6 +1366,7 @@ DOMAIN-SUFFIX,intsig.net
 DOMAIN-SUFFIX,ioppo.net
 DOMAIN-SUFFIX,iotronic.tech
 DOMAIN-SUFFIX,ipchaxun.com
+DOMAIN-SUFFIX,ipchaxun.net
 DOMAIN-SUFFIX,iplaysoft.com
 DOMAIN-SUFFIX,iposl.com
 DOMAIN-SUFFIX,ipshu.com
@@ -1736,6 +1744,7 @@ DOMAIN-SUFFIX,maxjia.com
 DOMAIN-SUFFIX,maxonesoft.com
 DOMAIN-SUFFIX,mblyun.com
 DOMAIN-SUFFIX,mcbaas.work
+DOMAIN-SUFFIX,mcdchina.net
 DOMAIN-SUFFIX,mcdemo.show
 DOMAIN-SUFFIX,mchost.guru
 DOMAIN-SUFFIX,mcpworld.com

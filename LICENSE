@@ -26,7 +26,7 @@ Scope note (not part of the MIT License text above):
 
 This license covers only the original code and documentation authored in
 this repository — the build/check scripts (patch.py, patch_ad.py,
-patch_lists.py, check_no_resolve.py) and the README.
+patch_lists.py, compile_supplement.py, check_no_resolve.py) and the README.
 
 Configuration data, rule lists and ad-blocking rules that are derived
 from, embedded from, or mirrored from upstream projects (including the

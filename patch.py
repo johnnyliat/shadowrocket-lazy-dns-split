@@ -17,22 +17,22 @@
     - FINAL,PROXY -> FINAL,PROXY,force-remote-dns（境外域名交节点远端解析）
   局域网：tun-excluded-routes 与 skip-proxy 补上 100.64.0.0/10（运营商级
     NAT 网段），与既有私有网段同等 bypass。
-  [Rule] 九组排序（先命中先赢，顺序即权力等级；组内上游相对顺序不动）:
+  [Rule] 八组排序（先命中先赢，顺序即权力等级；组内上游相对顺序不动）:
     1A 手动直连（custom-rules.txt 的 DIRECT 规则）
     1B 手动代理（custom-rules.txt 的 PROXY 规则）
     2  去广告（仅去广告版，本文件无此组）
     3  上游本地规则（原文件 [Rule] 里的字面规则，如 3 条 PROXY）
-    4  B 层补集 RULE-SET（SupplementB.list，@cn 精准直连，唯一凌驾于代理表之上）
-    5  代理规则表（上游 RULE-SET，原版顺序）
-    6  直连规则表（上游 RULE-SET，原版顺序，Global/China 兜底表居尾）
-    7  A 层补集 RULE-SET（SupplementA.list，常用直连补集）
-    8  GEOIP,CN,DIRECT（IP 推断；legacy 带 no-resolve，new 不带）
-    9  FINAL,PROXY,force-remote-dns（兜底）
-    补集两张表由 compile_supplement.py 每日编译生成（v2fly + ACL4SSR，
-    双边校验），本脚本只引用、不生产；表缺失即构建失败。
+    4  代理规则表（上游 RULE-SET，原版顺序）
+    5  直连规则表（上游 RULE-SET，原版顺序，Global/China 兜底表居尾）
+    6  A 层补集 RULE-SET（SupplementA.list，常用直连补集）
+    7  GEOIP,CN,DIRECT（IP 推断；legacy 带 no-resolve，new 不带）
+    8  FINAL,PROXY,force-remote-dns（兜底）
+    补集表由 compile_supplement.py 每日编译生成（v2fly + ACL4SSR，
+    双边校验：有代理证据的一律不补，服务不拆分），本脚本只引用、不生产；
+    表缺失即构建失败。
   结构安检: 生成后核对成品骨架（段落集合、[Proxy]/[Proxy Group] 无生效行、
     无 include、规则集地址白名单、[Host]/[MITM]/[URL Rewrite] 内容与基线一致、
-    九组位置断言、DNS 配对联动锁），上游骨架有任何预期外变化即失败。
+    八组位置断言、DNS 配对联动锁），上游骨架有任何预期外变化即失败。
 
 原则: 每处修改都有断言。锚点找不到就报错退出（exit 1），绝不生成半成品。
 """
@@ -45,9 +45,7 @@ SELF_BASE = "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-
 BASE = os.path.dirname(os.path.abspath(__file__))
 MIRRORS_FILE = os.path.join(BASE, "mirrors.txt")
 SUPPLEMENT_A_URL = SELF_BASE + "rules/SupplementA.list"
-SUPPLEMENT_B_URL = SELF_BASE + "rules/SupplementB.list"
 SUPPLEMENT_A_FILE = os.path.join(BASE, "rules", "SupplementA.list")
-SUPPLEMENT_B_FILE = os.path.join(BASE, "rules", "SupplementB.list")
 
 def load_mirrors():
     """读 mirrors.txt，返回 {上游地址: 自家镜像地址}。成品引用的每张规则表
@@ -169,11 +167,10 @@ def main(src_path, out_path, dns_mode):
     lines = open(src_path, encoding="utf-8").read().splitlines()
     custom_direct, custom_proxy = load_custom_rules()
     mirrors = load_mirrors()
-    for p in (SUPPLEMENT_A_FILE, SUPPLEMENT_B_FILE):
+    for p in (SUPPLEMENT_A_FILE,):
         if not os.path.exists(p):
             fail(f"补集表缺失（compile_supplement.py 须先运行）: {p}")
     n_a = count_active_rules(SUPPLEMENT_A_FILE)
-    n_b = count_active_rules(SUPPLEMENT_B_FILE)
     mirror_hits = {}
     local_rules = []
     out, section = [], None
@@ -265,10 +262,15 @@ def main(src_path, out_path, dns_mode):
 
         if section == "[Rule]" and s and not s.startswith("#") and not s.startswith("DOMAIN-SET,"):
             # 上游本地字面规则：原文件里散在规则表之间（如 litix.io 等 3 条），
-            # 这里收集起来、组装时集中放到第 3 组。全部为 PROXY 才允许上移：
-            # 它越过的只有 B 层（编译器已减掉本地规则覆盖，无重叠）与 PROXY
-            # 规则表（同策略），故不改变任何判定；出现非 PROXY 本地规则即失败。
+            # 这里收集起来、组装时集中放到第 3 组。只收域名/IP 类规则，且
+            # 全部为 PROXY 才允许上移：它越过的只有 PROXY 规则表（同策略），
+            # 故不改变任何判定；出现其他类型或非 PROXY 规则即失败等人工确认
+            #（USER-AGENT / DST-PORT / 逻辑组合等规则上移会改变裁决 precedence，
+            # 不能悄悄归入第 3 组）。
             parts = s.split(",")
+            if parts[0].strip().upper() not in ("DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD",
+                                                "DOMAIN-WILDCARD", "IP-CIDR", "IP-CIDR6", "IP6-CIDR"):
+                fail(f"上游本地规则类型不在预期内，无法安全归入第 3 组，需人工确认: {s!r}")
             if len(parts) < 3 or parts[2].strip().upper() != "PROXY":
                 fail(f"上游本地规则不是 PROXY 策略，无法安全归入第 3 组，需人工确认: {s!r}")
             local_rules.append(s)
@@ -284,7 +286,7 @@ def main(src_path, out_path, dns_mode):
     if missing:
         fail(f"锚点缺失，上游格式可能已变化，未打上的补丁: {sorted(missing)}")
 
-    # ---- 九组组装（自下而上拼接，索引不漂移）----
+    # ---- 八组组装（自下而上拼接，索引不漂移）----
     def find_idx(pred, what):
         for i, l in enumerate(out):
             if pred(l.strip()):
@@ -293,30 +295,18 @@ def main(src_path, out_path, dns_mode):
 
     rule_hdr = find_idx(lambda t: t == "[Rule]", "[Rule] 段头")
     first_rs = find_idx(lambda t: t.startswith("RULE-SET,"), "第一张规则表")
-    first_proxy_rs = find_idx(
-        lambda t: t.startswith("RULE-SET,") and len(t.split(",")) > 2 and t.split(",")[2].strip().upper() == "PROXY",
-        "第一张代理规则表")
     geoip_idx = find_idx(lambda t: t in ("GEOIP,CN,DIRECT", "GEOIP,CN,DIRECT,no-resolve"), "GEOIP 行")
 
-    b_line = f"RULE-SET,{SUPPLEMENT_B_URL},DIRECT"
     a_line = f"RULE-SET,{SUPPLEMENT_A_URL},DIRECT"
     # GEOIP 之前：A 层 + 尾巴横幅
     out[geoip_idx:geoip_idx] = [
-        f"# ===== 第 7 组：A 层补集（SupplementA.list，{n_a} 条常用直连，双边校验后仅含未被已有判定覆盖者）=====",
+        f"# ===== 第 6 组：A 层补集（SupplementA.list，{n_a} 条常用直连，双边校验后仅含未被已有判定覆盖者）=====",
         a_line,
-        "# ===== 第 8/9 组：IP 推断与兜底 =====",
+        "# ===== 第 7/8 组：IP 推断与兜底 =====",
     ]
-    # 第一张代理规则表之前：B 层（重算索引：上一步插入发生在更后方，不影响）
-    out[first_proxy_rs:first_proxy_rs] = [
-        f"# ===== 第 4 组：B 层补集（SupplementB.list，{n_b} 条 @cn 精准直连，有证据覆盖代理判断，故排在代理表之前）=====",
-        b_line,
-    ]
-    # 第一张上游规则表之前：上游表横幅（B 行本身也是 RULE-SET 行，须排除，
-    # 否则横幅会落到 B 行之前；重算后横幅落在 B 行与第一张上游表之间）
-    first_rs = find_idx(lambda t: t.startswith("RULE-SET,") and SUPPLEMENT_B_URL not in t,
-                        "第一张上游规则表")
+    # 第一张上游规则表之前：上游表横幅（A 行插在更后方，不影响此处索引）
     out[first_rs:first_rs] = [
-        "# ===== 第 5/6 组：上游规则表（原版顺序：代理判定在前、直连判定在后，Global/China 兜底表居尾）=====",
+        "# ===== 第 4/5 组：上游规则表（原版顺序：代理判定在前、直连判定在后，Global/China 兜底表居尾）=====",
     ]
     # [Rule] 段头之后：手动规则 1A/1B 两组
     rule_hdr = find_idx(lambda t: t == "[Rule]", "[Rule] 段头")
@@ -347,6 +337,13 @@ def main(src_path, out_path, dns_mode):
             fail("DNS 三行不完整（new）")
     if "dns-fallback-system = false" not in active or "ipv6 = false" not in active:
         fail("fail-closed / ipv6 行缺失")
+    # [General] 设计基线：这三行由上游原样透传、但本仓库的设计依赖它们，
+    # 上游删改即失败（不能悄悄变行为）。
+    for baseline in ("dns-direct-system = false",
+                     "dns-direct-fallback-proxy = true",
+                     "private-ip-answer = true"):
+        if sum(1 for l in active if l == baseline) != 1:
+            fail(f"[General] 设计基线缺失或重复: {baseline}")
     if [l for l in active if l.startswith("allow-dns-all")] != ["allow-dns-all = false"]:
         fail("allow-dns-all 不是恰好一条且为 false")
     for key in ("tun-excluded-routes =", "skip-proxy ="):
@@ -384,23 +381,18 @@ def main(src_path, out_path, dns_mode):
     if not rs_idx:
         fail("[Rule] 里没有规则表")
     first_rs_i = rs_idx[0]
-    # 第 3 组：上游本地规则紧跟手动块，且之后直接就是第一张规则表（B 行）
+    # 第 3 组：上游本地规则紧跟手动块，且之后直接就是第一张规则表
     if rule_active[n1:n1 + len(local_rules)] != local_rules:
         fail("第 3 组上游本地规则位置异常")
     if first_rs_i != n1 + len(local_rules):
         fail("第 3 组与第一张规则表之间出现多余规则")
-    # 第 4 组：B 行紧贴第一张代理规则表之前
-    first_proxy_i = next(i for i in rs_idx
-                         if rule_active[i].split(",")[2].strip().upper() == "PROXY")
-    if rule_active[first_proxy_i - 1] != b_line:
-        fail("B 层补集行不在第一张代理规则表之前")
-    # 第 7 组：A 行紧贴 GEOIP 之前
+    # 第 6 组：A 行紧贴 GEOIP 之前
     geoip_i = next(i for i, l in enumerate(rule_active) if l.startswith("GEOIP,"))
     if rule_active[geoip_i - 1] != a_line:
         fail("A 层补集行不在 GEOIP 之前")
     rs_urls = [rule_active[i].split(",", 2)[1] for i in rs_idx]
-    if sorted(rs_urls) != sorted(list(mirrors.values()) + [SUPPLEMENT_A_URL, SUPPLEMENT_B_URL]):
-        fail("成品引用的规则表与清单不一致（34 张镜像 + 2 张补集，存在未镜像的表，或缺失/重复）")
+    if sorted(rs_urls) != sorted(list(mirrors.values()) + [SUPPLEMENT_A_URL]):
+        fail("成品引用的规则表与清单不一致（34 张镜像 + 1 张补集，存在未镜像的表，或缺失/重复）")
     if len(rs_urls) != len(set(rs_urls)):
         fail("规则表引用有重复")
     if len(text.splitlines()) < 300:
@@ -424,11 +416,11 @@ def main(src_path, out_path, dns_mode):
         "# 上游: https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf\n"
         "#       （懒人配置，同步自 LOWERTOP/Shadowrocket，版权与署名归上游所有）\n"
         "# 补丁: 仅 DNS 机制与规则排序，均以注释标出；名单内容与上游逐字一致。\n"
-        "# 排序（先命中先赢，共九组，组内上游相对顺序不动）:\n"
+        "# 排序（先命中先赢，共八组，组内上游相对顺序不动）:\n"
         "#   1A 手动直连 / 1B 手动代理（custom-rules.txt，权力最高）\n"
-        "#   3 上游本地规则；4 B 层补集（@cn 精准直连）；5 代理规则表；6 直连规则表；\n"
-        f"#   7 A 层补集（{n_a} 条常用直连）；8 GEOIP,CN；9 FINAL,PROXY,force-remote-dns。\n"
-        f"# 补集由 compile_supplement.py 每日编译（v2fly data/cn + @cn + ACL4SSR 精选表，双边校验）。\n"
+        "#   3 上游本地规则；4 代理规则表；5 直连规则表；\n"
+        f"#   6 A 层补集（{n_a} 条常用直连）；7 GEOIP,CN；8 FINAL,PROXY,force-remote-dns。\n"
+        f"# 补集由 compile_supplement.py 每日编译（v2fly data/cn + ACL4SSR 精选表，双边校验：有代理证据的一律不补）。\n"
         "# 手动: 仓库根目录 custom-rules.txt 的自定义直连/代理规则，分 1A/1B 两组内嵌于 [Rule] 最前面；\n"
         "#       该文件为空时配置里只有标记注释，行为与无手动规则时完全一致。\n"
         + dns_note +
