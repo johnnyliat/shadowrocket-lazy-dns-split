@@ -1,4 +1,4 @@
-<h1 align="center">Shadowrocket 懒人配置 · DNS 国内外分流</h1>
+<h1 align="center">Shadowrocket 懒人配置 · DNS 防泄漏与国内外智能分流</h1>
 
 <p align="center">
   <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml"><img alt="每日同步" src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml/badge.svg"></a>
