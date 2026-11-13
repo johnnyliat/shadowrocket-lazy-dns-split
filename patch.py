@@ -2,9 +2,9 @@
 """patch.py — 给上游 lazy.conf 打补丁，生成基础版成品 lazy-dns.conf。
 
 用法: python3 patch.py <上游 lazy.conf 路径> <输出路径> [--dns-mode=legacy|new]
-  --dns-mode=legacy（默认，线上现行）: 全部 DNS 走国内双 DoH，
+  --dns-mode=legacy（默认，旧模式）: 全部 DNS 走国内双 DoH，
     GEOIP 带 no-resolve（未知域名不解析、直接落 FINAL 走代理）。
-  --dns-mode=new（测试用，待真机验证后才上线）: dns-server 改国外双 DoH
+  --dns-mode=new（线上现行）: dns-server 改国外双 DoH
     经代理查询（Cloudflare + Google，#proxy），GEOIP 去掉 no-resolve，
     未知域名先经隧道查 IP 再按归属分流；direct/proxy-dns-server 仍为
     国内双 DoH（直连域名与节点域名不依赖代理）。
