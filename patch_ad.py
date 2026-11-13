@@ -253,7 +253,8 @@ def main(lazy_path, ad_path, out_path, dns_mode):
             continue
 
         if section == "[General]" and s.startswith("fallback-dns-server ="):
-            out.append("# [DNS分流补丁] 已删除原 fallback-dns-server（原版为 system，会回退运营商 DNS）；境外域名靠规则层交节点远端解析，不需要本地备用解析。")
+            out.append("# [DNS分流补丁] fallback-dns-server 写明国内双 DoH（原版为 system）：主查询失败时回落到加密的国内 DNS，不回落系统 DNS；实测留空会在代理故障时回落系统 DNS。")
+            out.append(f"fallback-dns-server = {DUAL_DOH}")
             out.append("dns-fallback-system = false")
             done.add("fallback")
             continue
@@ -383,8 +384,8 @@ def main(lazy_path, ad_path, out_path, dns_mode):
                 rule_active.append(t)
     if sum(1 for l in active if l.startswith("dns-server =")) != 1:
         fail("dns-server 不是恰好一条")
-    if any(l.startswith("fallback-dns-server =") for l in active):
-        fail("fallback-dns-server 仍然存在")
+    if sum(1 for l in active if l.startswith("fallback-dns-server =")) != 1 or f"fallback-dns-server = {DUAL_DOH}" not in active:
+        fail("fallback-dns-server 不是恰好一条国内双 DoH")
     if dns_mode == "legacy":
         for key in ("dns-server", "direct-dns-server", "proxy-dns-server"):
             if f"{key} = {DUAL_DOH}" not in active:
@@ -448,13 +449,13 @@ def main(lazy_path, ad_path, out_path, dns_mode):
     dns_note = (
         "#   国内: dns-server / direct-dns-server / proxy-dns-server = 阿里 DoH + 腾讯 DoH（加密）\n"
         "#   国外: 无本地解析 —— GEOIP 加 no-resolve、FINAL,PROXY,force-remote-dns 交节点远端解析；\n"
-        "#         删除 fallback-dns-server 并设 dns-fallback-system = false（fail-closed）；ipv6 = false；\n"
+        "#         fallback-dns-server 写明国内双 DoH，dns-fallback-system = false（主查询失败时不回落系统 DNS）；ipv6 = false；\n"
         "#         allow-dns-all = false（A/AAAA 之外的查询返回空值、不转发国内 DNS）；\n"
     ) if dns_mode == "legacy" else (
         "#   国外预解析: dns-server = Cloudflare DoH + Google DoH，经代理查询（#proxy），\n"
         "#         未知域名先经隧道查 IP 再按归属分流；GEOIP 去掉 no-resolve，与 #proxy 配对（联动锁断言）。\n"
         "#   国内: direct-dns-server = 阿里 DoH + 腾讯 DoH（加密）；proxy-dns-server 同为国内双 DoH（只解析节点域名）。\n"
-        "#   删除 fallback-dns-server 并设 dns-fallback-system = false（fail-closed）；ipv6 = false；\n"
+        "#   fallback-dns-server 写明国内双 DoH，dns-fallback-system = false（主查询失败时不回落系统 DNS）；ipv6 = false；\n"
         "#         allow-dns-all = false（A/AAAA 之外的查询返回空值、不转发国内 DNS）；\n"
     )
     header = (
