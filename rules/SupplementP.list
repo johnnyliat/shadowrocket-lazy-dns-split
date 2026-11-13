@@ -1,0 +1,52 @@
+# SupplementP（代理补集）：代理补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
+# 来源：ACL4SSR ProxyGFWlist/ProxyLite/ProxyMedia + GFWList；双边校验后仅含未被已有判定覆盖的域名规则。
+# 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
+# 条数：48
+DOMAIN,api.together.xyz
+DOMAIN-SUFFIX,adultfriendfinder.com
+DOMAIN-SUFFIX,authorizeddns.net
+DOMAIN-SUFFIX,authorizeddns.org
+DOMAIN-SUFFIX,authorizeddns.us
+DOMAIN-SUFFIX,bbci.co
+DOMAIN-SUFFIX,bsky.chat
+DOMAIN-SUFFIX,client-api.arkoselabs.com
+DOMAIN-SUFFIX,dafahao.com
+DOMAIN-SUFFIX,ddns.info
+DOMAIN-SUFFIX,ddns.me.uk
+DOMAIN-SUFFIX,ddns.mobi
+DOMAIN-SUFFIX,ddns.name
+DOMAIN-SUFFIX,ddns.net
+DOMAIN-SUFFIX,ddns.us
+DOMAIN-SUFFIX,discovery.com
+DOMAIN-SUFFIX,events.statsigapi.net
+DOMAIN-SUFFIX,featuregates.org
+DOMAIN-SUFFIX,freeddns.com
+DOMAIN-SUFFIX,freeddns.org
+DOMAIN-SUFFIX,gooddns.info
+DOMAIN-SUFFIX,hjholdings.jp
+DOMAIN-SUFFIX,japonx.com
+DOMAIN-SUFFIX,japonx.net
+DOMAIN-SUFFIX,japonx.tv
+DOMAIN-SUFFIX,japonx.vip
+DOMAIN-SUFFIX,japronx.com
+DOMAIN-SUFFIX,japronx.net
+DOMAIN-SUFFIX,japronx.tv
+DOMAIN-SUFFIX,japronx.vip
+DOMAIN-SUFFIX,joox.com
+DOMAIN-SUFFIX,myddns.com
+DOMAIN-SUFFIX,newrelic.com
+DOMAIN-SUFFIX,ntdtv.org
+DOMAIN-SUFFIX,page.tl
+DOMAIN-SUFFIX,prod.hjholdings.tv
+DOMAIN-SUFFIX,sentry.io
+DOMAIN-SUFFIX,steamladder.com
+DOMAIN-SUFFIX,streaks.jp
+DOMAIN-SUFFIX,torrentleech.org
+DOMAIN-SUFFIX,twitch-ext.rootonline.de
+DOMAIN-SUFFIX,ubddns.org
+DOMAIN-SUFFIX,unblock.cn.com
+DOMAIN-SUFFIX,wiki.cnitter.com
+DOMAIN-SUFFIX,yb.uncn.jp
+DOMAIN-SUFFIX,youversionapi.com
+DOMAIN-SUFFIX,yuanming.net
+DOMAIN-SUFFIX,zhengwunet.org

@@ -1,0 +1,19 @@
+# SupplementAd（去广告补充）：去广告补充，由 compile_supplement.py 每日编译生成，请勿手动编辑。
+# 来源：DuskWander87 Reject.list；双边校验后仅含未被已有判定覆盖的域名规则。
+# 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
+# 条数：15
+DOMAIN-SUFFIX,1rtb.cn
+DOMAIN-SUFFIX,1rtb.com
+DOMAIN-SUFFIX,1rtb.net
+DOMAIN-SUFFIX,admate.cn
+DOMAIN-SUFFIX,adxdata.com
+DOMAIN-SUFFIX,anythinktech.com
+DOMAIN-SUFFIX,app.update.lenovo.com
+DOMAIN-SUFFIX,click.lenovo.com
+DOMAIN-SUFFIX,forms-emea.lenovo.com
+DOMAIN-SUFFIX,forms.lenovo.com
+DOMAIN-SUFFIX,ibidmob.com
+DOMAIN-SUFFIX,images.business.lenovo.com
+DOMAIN-SUFFIX,images.smbdirect.lenovo.com
+DOMAIN-SUFFIX,o.lenovo.com
+DOMAIN-SUFFIX,s.lenovo.com
