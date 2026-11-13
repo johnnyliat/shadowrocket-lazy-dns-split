@@ -23,10 +23,14 @@ jobs:
           fail=0
           check() {
             url="$1"
+            mode="${2:-}"
             code=$(curl -sSL -o /tmp/body -w "%{http_code}" --max-time 30 --retry 2 "$url") || code="000"
             size=$(wc -c < /tmp/body 2>/dev/null || echo 0)
             if [ "$code" != "200" ] || [ "$size" -lt 10 ]; then
               echo "FAIL [$code, ${size}B] $url"
+              fail=1
+            elif [ "$mode" = "ruleset" ] && ! grep -qE '^(DOMAIN|HOST|IP-|USER-AGENT|URL-REGEX|GEOIP|AND,|OR,|NOT,)' /tmp/body; then
+              echo "FAIL [200, ${size}B, no rule lines] $url"
               fail=1
             else
               echo "OK   [$code, ${size}B] $url"
@@ -36,7 +40,7 @@ jobs:
           check "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_ad_only.conf"
           curl -fsSL --retry 3 -o /tmp/lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf" || { echo "::error::上游 lazy.conf 下载失败，无法提取规则集清单"; exit 1; }
           grep -oE "RULE-SET,https://[^,]+" /tmp/lazy.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/urls.txt
-          [ -s /tmp/urls.txt ] || { echo "::error::未从上游 lazy.conf 提取到规则集链接"; exit 1; }
+          [ -s /tmp/urls.txt ] || { echo "::error::未从上游 lazy.conf 提取到规则集清单"; exit 1; }
           echo "Rule-sets found: $(wc -l < /tmp/urls.txt)"
           while IFS= read -r u; do check "$u"; done < /tmp/urls.txt
           echo "First-party files (GitHub Raw):"
@@ -46,9 +50,28 @@ jobs:
           grep -oE "RULE-SET,https://[^,]+" /tmp/lazy-dns.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/selfurls.txt
           [ -s /tmp/selfurls.txt ] || { echo "::error::未从自家成品提取到镜像链接"; exit 1; }
           echo "Self-hosted rule-sets found: $(wc -l < /tmp/selfurls.txt)"
-          while IFS= read -r u; do check "$u"; done < /tmp/selfurls.txt
+          while IFS= read -r u; do check "$u" ruleset; done < /tmp/selfurls.txt
           if [ "$fail" -ne 0 ]; then
             echo "::error::Some upstream/rule-set URLs are unavailable (see FAIL lines above)."
             exit 1
           fi
           echo "All URLs healthy."
+
+      - name: Verify published content matches manifest
+        run: |
+          set -u
+          command -v jq >/dev/null || { echo "::error::jq 不可用"; exit 1; }
+          curl -fsSL --retry 3 -o /tmp/manifest.json "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/manifest.json" || { echo "::error::manifest.json 下载失败"; exit 1; }
+          jq -e . /tmp/manifest.json >/dev/null || { echo "::error::manifest.json 不是合法 JSON"; exit 1; }
+          for f in lazy-dns.conf lazy-dns-ad.conf; do
+            curl -fsSL --retry 3 -o "/tmp/$f" "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/$f" || { echo "::error::$f 下载失败"; exit 1; }
+            want=$(jq -r --arg f "$f" '.products[$f].sha256' /tmp/manifest.json)
+            got=$(sha256sum "/tmp/$f" | cut -d' ' -f1)
+            if [ "$want" != "$got" ]; then echo "::error::$f 的 SHA256 与 manifest 不一致（manifest=$want 实际=$got）"; exit 1; fi
+            echo "OK $f sha256 与 manifest 一致"
+          done
+          grep -q "dns-server = https://cloudflare-dns.com/dns-query#proxy" /tmp/lazy-dns.conf || { echo "::error::基础版缺少 #proxy 预解析 DNS 行"; exit 1; }
+          grep -q "dns-server = https://cloudflare-dns.com/dns-query#proxy" /tmp/lazy-dns-ad.conf || { echo "::error::去广告版缺少 #proxy 预解析 DNS 行"; exit 1; }
+          grep -q "FINAL,PROXY,force-remote-dns" /tmp/lazy-dns.conf || { echo "::error::基础版缺少 FINAL 远端解析行"; exit 1; }
+          grep -q "FINAL,PROXY,force-remote-dns" /tmp/lazy-dns-ad.conf || { echo "::error::去广告版缺少 FINAL 远端解析行"; exit 1; }
+          echo "Content integrity OK."
