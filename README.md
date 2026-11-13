@@ -7,7 +7,7 @@
   <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml"><img alt="每周健康检查" src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml/badge.svg"></a>
 </p>
 
-基于懒人配置优化的 DNS 分流与防泄漏方案：**国内域名用国内 DoH 直连，国外域名走代理远端解析；未知域名经代理 DoH 预解析，由 GEOIP 判断直连或代理。**整合多源规则，去重补全直连与代理策略；广告拦截可选；GitHub Actions 每日自动构建、校验和更新。
+基于懒人配置优化的 DNS 分流与防泄漏方案：**国内域名用国内 DoH 直连，国外域名走代理远端解析；未知域名经代理 DoH 预解析，由 GEOIP 判断直连或代理。** 整合多源规则，去重补全直连与代理策略；广告拦截可选；GitHub Actions 每日自动构建、校验和更新。
 
 ## 分流与 DNS 路径
 
