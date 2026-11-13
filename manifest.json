@@ -1,0 +1,215 @@
+{
+  "inputs": {
+    "custom-rules.txt": {
+      "lines": 92,
+      "sha256": "cdadfa2bcfc6aa7245a89f37505aa211e3a1018362874a6f3dbcd2492b54cf33"
+    },
+    "lazy.conf": {
+      "lines": 346,
+      "sha256": "d2ba9325213aed89debefd3920394b3346cb58a03900a72a81f7a4e5198066c1"
+    },
+    "mirrors.txt": {
+      "lines": 44,
+      "sha256": "f40d19e6466305c83b8121c794839512050d27e581e5180535669a5ef7fcfc34"
+    },
+    "sr_ad_only.conf": {
+      "lines": 52847,
+      "sha256": "e5763e2b8bbe7fc8775becddc812ca5915cb0e3ade9046642c71ea878155fa67"
+    }
+  },
+  "products": {
+    "lazy-dns-ad.conf": {
+      "lines": 53241,
+      "sha256": "f6364365c494e0b5db4f4151856d226fb3ce3111e128bb336944deee50847429"
+    },
+    "lazy-dns.conf": {
+      "lines": 439,
+      "sha256": "7c41e9e2f69a3a1de92e41dc5e8084cd50a704d58bf45ed285b13c4e98939902"
+    }
+  },
+  "rules": {
+    "AI.list": {
+      "lines": 99,
+      "sha256": "a8cdda4982d0a68ec3380e315f39135fe3cc8325f05b9cfc3a9e97b9cd6a9f8f"
+    },
+    "Amazon.list": {
+      "lines": 217,
+      "sha256": "79126b64c136d661bdc75239f2df0c35aca22d2255fcd606c9e8dea58a360773"
+    },
+    "Apple.list": {
+      "lines": 1893,
+      "sha256": "186eb7d74047c6e53c7240c257b94d8dd043d778752f48ce240d6cd88c4425f3"
+    },
+    "Baidu.list": {
+      "lines": 258,
+      "sha256": "44ead06dac99140e7ebb8ff9df0bee0a38407a80d0f93c4489410cab66591111"
+    },
+    "BiliBili.list": {
+      "lines": 137,
+      "sha256": "319610dfcb4a8fb23a5eec2c8e8280fd156efadc58accb721511060c5839aba1"
+    },
+    "China.list": {
+      "lines": 3766,
+      "sha256": "776bf96fb775e18bb8e77dc0b2edd14f8d2e224c6850fcc8a38d3266eb5b4f7c"
+    },
+    "Disney.list": {
+      "lines": 181,
+      "sha256": "d9bf07cc3ee114ddf71fc7fcdbb9ee2508d353c8dd268c0ef766d721f5f19c4d"
+    },
+    "DouBan.list": {
+      "lines": 10,
+      "sha256": "8e473096cabfb2a23a7823aad25f945d945319758c80e788b5293a9961a1b85d"
+    },
+    "DouYin.list": {
+      "lines": 21,
+      "sha256": "0242fd7706caaf8c8b1445ba1739937c3db9379be30f1ebad37727d8b4f38922"
+    },
+    "Epic.list": {
+      "lines": 22,
+      "sha256": "c8abbfa3c64483f1898e8c382a887ff22dfaaeae602861503f1ead46e45e2ebe"
+    },
+    "Facebook.list": {
+      "lines": 580,
+      "sha256": "3f1323bede2f5568028917871df037d91411e91ebf3e504d21fcaaca6e02286b"
+    },
+    "Game.list": {
+      "lines": 622,
+      "sha256": "60b082a18989288a7e695335c9f2aec134ea8b219ab77e7a6db6bf209f82212c"
+    },
+    "GitHub.list": {
+      "lines": 39,
+      "sha256": "562f3dbbd83613ce08d89610354e2b312a4b886f42f481d756aa591cd48aab75"
+    },
+    "Global.list": {
+      "lines": 36026,
+      "sha256": "ff1b77d7796eef030b0a99f566218f769c6ff8dce25f325a4c6e8f73f869a070"
+    },
+    "Google.list": {
+      "lines": 709,
+      "sha256": "3cf2cdeed74741f2b372af0715468852a9a1f4283fbf35e02de2eaef9db5e04b"
+    },
+    "HBO.list": {
+      "lines": 57,
+      "sha256": "fee16296f60de306ab57252c3a6f968fbe0b23d91f1c4b3a1db9a00e4a7bfe19"
+    },
+    "Lan.list": {
+      "lines": 151,
+      "sha256": "dac83127aee2b8304b287478f5a0eb3b4d812e914bf608d7a334fac0324faef0"
+    },
+    "Microsoft.list": {
+      "lines": 681,
+      "sha256": "95adeb84acfc912c7b0346f416c3a5e4b229a78c41c175f48e35ef50c2811147"
+    },
+    "NetEaseMusic.list": {
+      "lines": 40,
+      "sha256": "074f9635079fd96f5c50887cf22bae35117a4cb57943b798d913a10a94ae9ec7"
+    },
+    "Netflix.list": {
+      "lines": 1168,
+      "sha256": "c5ff336acdbd25a38a0e990cead1a21aaa992185daba75c0b4f50d2ac80d8d50"
+    },
+    "Nintendo.list": {
+      "lines": 134,
+      "sha256": "e7563567788329d8b322cfa54d94eec7f0f3b6affe97af002d814735bac99054"
+    },
+    "PayPal.list": {
+      "lines": 257,
+      "sha256": "0cd7bd70f9ec31a49a77cc6362b47d72214aa750f1c1331755ead95684b0a34e"
+    },
+    "Sina.list": {
+      "lines": 116,
+      "sha256": "e508cda80e4847af4efff8d053c79df21b2387fc57326f73f92108d066eaead1"
+    },
+    "Sony.list": {
+      "lines": 124,
+      "sha256": "a09240e9600bc5e8ab98e00b4422d57b5b138ce83ed7099d31d1acecd5c06116"
+    },
+    "Spotify.list": {
+      "lines": 41,
+      "sha256": "b4d297c9d6e02f8d395f56a618379e1786ae3e485bfdb76627a12ba458f895a8"
+    },
+    "Steam.list": {
+      "lines": 78,
+      "sha256": "aae9c9f6b7f67f8c60269bf2e55cca52675ccddf3462f56ebe6887a6d9522575"
+    },
+    "SteamCN.list": {
+      "lines": 25,
+      "sha256": "4f3600150f9fbad1012cf5dc1df01f4f9ddc92447b4a549bbf6d9d58af3398e8"
+    },
+    "SupplementA.list": {
+      "lines": 3094,
+      "sha256": "b715a80d6866019cae3ef20fc2b5ab0912706f76f6f4cd7071d22ff86b53c413"
+    },
+    "SupplementAd.list": {
+      "lines": 19,
+      "sha256": "485f4b68db20198cedb90a6cb4647594248d6d6380145e6081e95b2e14439123"
+    },
+    "SupplementP.list": {
+      "lines": 52,
+      "sha256": "e9e9d1cac8650e48d0f97a574789a85621ad3185ead7ef52a23574d3e124aae4"
+    },
+    "Telegram.list": {
+      "lines": 51,
+      "sha256": "a18eb112131dc959b82b6208756bd8dbd6900b9b8ff9830a5fe1c275575b0f6e"
+    },
+    "TikTok.list": {
+      "lines": 45,
+      "sha256": "3ead51d3a31190a17f571b3e7ce79cc9d964ad4c1923344f8fefac07bfefa961"
+    },
+    "Twitter.list": {
+      "lines": 42,
+      "sha256": "86e072c63e06eb3871140176de0b7ed4746691a52ebc083b506b0d90745a09db"
+    },
+    "WeChat.list": {
+      "lines": 53,
+      "sha256": "66aea00ac4142c4b7ec721715829e1f19c2a5c5a0c70f53b7fa650e4b75da42a"
+    },
+    "XiaoHongShu.list": {
+      "lines": 11,
+      "sha256": "e32d933f36d7ec0b2721f58a5c1996e9809f21f8fa656b94e82e7900ed624ca5"
+    },
+    "YouTube.list": {
+      "lines": 200,
+      "sha256": "4dc45d7760e6e53602778a40dbeab1cda8a160a578bb4ac1db93ed39e7785989"
+    },
+    "Zhihu.list": {
+      "lines": 15,
+      "sha256": "113ea1129291d28e015c3e463160ac01e2dafd35cbb89ead3bb9249e6b13b925"
+    }
+  },
+  "scripts": {
+    "build_common.py": {
+      "lines": 511,
+      "sha256": "57e0c1d8f1bde0c51cb440d6b84d55745d9b1586d0283bac52366b4d82f264c6"
+    },
+    "build_manifest.py": {
+      "lines": 75,
+      "sha256": "b4ac3b77e2948ad44b6c1ee6a5f1c3da7ad89b43d173c377c30c95080b2fef82"
+    },
+    "check_no_resolve.py": {
+      "lines": 133,
+      "sha256": "b3c23600ed1c301a16aa63f0a3600f458ed959d238d73d69754866a904ce8299"
+    },
+    "compile_supplement.py": {
+      "lines": 795,
+      "sha256": "9668e8b6d4792f76e3362a7237181a653f8e0f642b48b71917bd71ab30b1eb23"
+    },
+    "patch.py": {
+      "lines": 186,
+      "sha256": "ee7b67c90efde9d95b0da776b32dbe669cfc2554206b4cdcb730e37fe21edd65"
+    },
+    "patch_ad.py": {
+      "lines": 273,
+      "sha256": "9545270e5271473134918d81198e0dd6bf8d7362345e02f22c5dab0b4025fa33"
+    },
+    "patch_lists.py": {
+      "lines": 153,
+      "sha256": "93bb7cf00cb2eb099742e5a7f10f578a62120a790be773e6fe516820a41e661b"
+    },
+    "verify_routing.py": {
+      "lines": 554,
+      "sha256": "5d09e81f086f37d39e0586608486aad189614b224e74fa43315bfe56804f1aab"
+    }
+  },
+  "version": 1
+}
