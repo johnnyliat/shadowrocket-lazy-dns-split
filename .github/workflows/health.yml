@@ -70,6 +70,16 @@ jobs:
             if [ "$want" != "$got" ]; then echo "::error::$f 的 SHA256 与 manifest 不一致（manifest=$want 实际=$got）"; exit 1; fi
             echo "OK $f sha256 与 manifest 一致"
           done
+          mirror_count=$(jq -r '.rules | length' /tmp/manifest.json)
+          [ "$mirror_count" -gt 0 ] || { echo "::error::manifest.json 里没有规则镜像记录"; exit 1; }
+          jq -r '.rules | keys[]' /tmp/manifest.json > /tmp/rule-names.txt
+          while IFS= read -r name; do
+            curl -fsSL --retry 3 -o /tmp/rule.tmp "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/rules/$name" || { echo "::error::规则镜像 $name 下载失败"; exit 1; }
+            want=$(jq -r --arg n "$name" '.rules[$n].sha256' /tmp/manifest.json)
+            got=$(sha256sum /tmp/rule.tmp | cut -d' ' -f1)
+            if [ "$want" != "$got" ]; then echo "::error::规则镜像 $name 的 SHA256 与 manifest 不一致（manifest=$want 实际=$got）"; exit 1; fi
+          done < /tmp/rule-names.txt
+          echo "OK 全部 $mirror_count 张规则镜像 sha256 与 manifest 一致"
           grep -q "dns-server = https://cloudflare-dns.com/dns-query#proxy" /tmp/lazy-dns.conf || { echo "::error::基础版缺少 #proxy 预解析 DNS 行"; exit 1; }
           grep -q "dns-server = https://cloudflare-dns.com/dns-query#proxy" /tmp/lazy-dns-ad.conf || { echo "::error::去广告版缺少 #proxy 预解析 DNS 行"; exit 1; }
           grep -q "FINAL,PROXY,force-remote-dns" /tmp/lazy-dns.conf || { echo "::error::基础版缺少 FINAL 远端解析行"; exit 1; }
