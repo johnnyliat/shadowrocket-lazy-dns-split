@@ -21,6 +21,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # 推送前可能需要 rebase 到最新远程，需要完整历史
+          fetch-depth: 0
 
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
@@ -35,7 +38,15 @@ jobs:
 
       - name: Compile direct-rule supplement (v2fly + ACL4SSR, two-sided check)
         run: |
-          git clone -q --depth 1 https://github.com/v2fly/domain-list-community.git v2fly-data
+          for i in 1 2 3; do
+            rm -rf v2fly-data
+            if git clone -q --depth 1 https://github.com/v2fly/domain-list-community.git v2fly-data; then
+              break
+            fi
+            echo "clone attempt $i failed, retrying..."
+            sleep 10
+          done
+          [ -d v2fly-data ] || { echo "::error::v2fly data clone failed after 3 attempts"; exit 1; }
           python3 compile_supplement.py --v2fly-dir v2fly-data/data --lazy upstream-lazy.conf --ad upstream-sr_ad_only.conf
           rm -rf v2fly-data
 
@@ -65,4 +76,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "sync: upstream lazy.conf (+ sr_ad_only) + DNS split patch + supplement"
-          git push
+          # 推送时远程 main 可能已有新提交（网页编辑等），直接 push 会被拒：
+          # 先 fetch + rebase 到最新远程再推，最多 3 次；冲突则中止并失败，不覆盖他人提交。
+          for i in 1 2 3; do
+            git fetch origin main || { echo "fetch failed, retrying..."; sleep 10; continue; }
+            if ! git rebase origin/main; then
+              git rebase --abort
+              echo "::error::rebase conflict, aborted; next run will retry"
+              exit 1
+            fi
+            if git push; then
+              echo "Pushed."
+              exit 0
+            fi
+            echo "push attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "::error::push failed after 3 attempts"
+          exit 1
