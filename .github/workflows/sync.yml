@@ -37,10 +37,10 @@ jobs:
           rm -rf v2fly-data
 
       - name: Apply DNS split patch (pure version)
-        run: python3 patch.py upstream-lazy.conf lazy-dns.conf
+        run: python3 patch.py upstream-lazy.conf lazy-dns.conf --dns-mode=new
 
       - name: Build ad version (DNS patch + embed ad rules)
-        run: python3 patch_ad.py upstream-lazy.conf upstream-sr_ad_only.conf lazy-dns-ad.conf
+        run: python3 patch_ad.py upstream-lazy.conf upstream-sr_ad_only.conf lazy-dns-ad.conf --dns-mode=new
 
       - name: Verify no-resolve coverage of all rules (leak guard)
         run: python3 check_no_resolve.py lazy-dns.conf lazy-dns-ad.conf
