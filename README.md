@@ -1,13 +1,13 @@
 <h1 align="center">Shadowrocket 懒人配置 · DNS 国内外分流</h1>
 
-<p align="center">基于原版懒人配置，调整 DNS 路径，补充直连与代理规则；提供基础版、去广告版，每日自动构建。</p>
+<p align="center">DNS 分流与防泄漏方案：基于原版懒人配置，调整 DNS 路径，补充直连与代理规则；提供基础版、去广告版，每日自动构建。</p>
 
 <p align="center">
   <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml"><img alt="每日同步" src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml/badge.svg"></a>
   <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml"><img alt="每周健康检查" src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml/badge.svg"></a>
 </p>
 
-保留懒人配置原有的分流框架：**已知域名按规则直连或代理；未知域名经代理 DoH 预解析，再按 IP 归属决定出口。** 国内目标尽量直连，境外目标尽量走代理，减少分流判断过程中不必要的本地 DNS 查询。规则自动同步、编译和校验，不需要手工拼接配置。
+基于懒人配置优化的 DNS 分流与防泄漏方案：**国内域名用国内 DoH 直连，国外域名走代理远端解析；未知域名经代理 DoH 预解析，由 GEOIP 判断直连或代理。**整合多源规则，去重补全直连与代理策略；广告拦截可选；GitHub Actions 每日自动构建、校验和更新。
 
 ## 分流与 DNS 路径
 
@@ -54,7 +54,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf
 ```
 
-两个版本使用同一套主要 DNS 与分流机制。去广告版额外在靠前位置加入广告拦截规则，命中后会优先 `REJECT`；因此它与基础版的实际访问结果不一定完全相同。广告规则来自上游 `sr_ad_only.conf` 和补充规则集，无需启用 HTTPS 解密。
+两个版本使用同一套 DNS 与分流机制。去广告版在靠前位置加入广告拦截规则，命中后优先 `REJECT`，实际访问结果与基础版不一定完全相同。广告规则来自上游 `sr_ad_only.conf` 和补充规则集，无需启用 HTTPS 解密。
 
 ### 使用
 
@@ -84,7 +84,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 
 ## 为什么要改 DNS
 
-代理连接走了 VPS，不代表分流前的域名查询也走了 VPS。对未命中域名规则的请求，`GEOIP` 等 IP 规则可能需要先解析域名；若这一步使用了本地 DNS，即使最后决定走代理，域名查询也可能已经发给本地解析器。
+代理连接走了 VPS，不代表分流前的域名查询也走了 VPS：未命中域名规则的请求要靠 `GEOIP` 等 IP 规则判定，判定前须先解析域名；这一步若用本地 DNS，即使最后走代理，查询也已发给本地解析器。
 
 本仓库保留原版规则覆盖，重点调整三种路径：
 
@@ -127,7 +127,7 @@ FINAL,PROXY,force-remote-dns
 
 原版懒人配置引用的 **34 张规则表**统一镜像到本仓库 `rules/`，具体上游 URL 和文件映射见 [`mirrors.txt`](mirrors.txt)。其中 Apple、China、Global、WeChat 四张 QuantumultX 格式规则表需要为 IP 规则补齐 `no-resolve`；其余 Shadowrocket 格式规则表逐行照搬（IP 规则本就带 `no-resolve`）。构建时逐行核对镜像与上游的差异（除补齐 `no-resolve` 外不得有其他改动），并记录与上一版的差异供追溯。
 
-镜像不是另写一套低覆盖率的规则，而是保留上游原有分流内容，先检查再交付给客户端。**它能限制未经本轮构建检查的上游变化直接进入成品，但不意味着上游每条分流判断都经过人工确认。**
+镜像不是另写一套规则，而是保留上游原有分流内容，先检查再交付给客户端。**它能限制未经本轮构建检查的上游变化直接进入成品，但不意味着上游每条分流判断都经过人工确认。**
 
 ### 只补原版没覆盖的
 
@@ -139,9 +139,9 @@ FINAL,PROXY,force-remote-dns
 | `rules/SupplementP.list` | ACL4SSR 代理表、GFWList：补充境外代理 |
 | `rules/SupplementAd.list` | DuskWander87 Reject：补充广告与追踪拦截，仅去广告版使用 |
 
-编译器会规范化候选、排除已被已有规则完整覆盖的条目、参考相反策略的证据并检查异常规模。A 层补集还包含顶级域名保护和相邻构建差异检查。对父子域及策略重叠输出报告，避免未经分析就大范围改变原版判定。
+编译器规范化候选，排除已被已有规则完整覆盖的条目，参考相反策略的证据，检查异常规模与相邻构建差异；A 层补集另有顶级域名保护。父子域及策略重叠输出报告，避免未经分析就大范围改变原版判定。
 
-这里的“去重”指规则覆盖关系，并非保证所有上游规则之间毫无交集；组合规则、通配规则和跨服务域名仍可能存在策略差异。**补集不主动推翻排在它前面的原版规则。**
+这里的“去重”指规则覆盖关系，不保证上游规则之间毫无交集；组合规则、通配规则和跨服务域名仍可能存在策略差异。**补集不推翻排在它前面的原版规则。**
 
 ### 分流顺序
 
@@ -159,33 +159,24 @@ FINAL,PROXY,force-remote-dns
 | 8 | `GEOIP,CN,DIRECT` | 对仍未确定的目标按中国 IP 判断 |
 | 9 | `FINAL,PROXY,force-remote-dns` | 最终代理兜底 |
 
-当前手动规则：汇丰集团域名整组直连（同一银行服务出口一致），`ip.cn` 走代理（查看出口 IP）；清单见 [`custom-rules.txt`](custom-rules.txt)。
-
-这也意味着 `DIRECT` 不严格等于“中国域名”：手动规则、原版规则和兼容性例外可以有明确的海外直连判定。最终结果以 **Shadowrocket 的实际第一条命中规则**为准。
+手动维护的域名在 [`custom-rules.txt`](custom-rules.txt) 中公开可查；最终结果以 **Shadowrocket 的实际第一条命中规则**为准。
 
 ## 自动更新与检查
 
 [`sync.yml`](.github/workflows/sync.yml) 每天 **UTC 01:07（北京时间 09:07）**计划执行，支持手动触发；GitHub Actions 定时任务可能延后。
 
-```text
-上游 lazy.conf / sr_ad_only.conf / 第三方规则
-                    ↓
-                单元测试
-                    ↓
-            34 张规则表同步与修补
-                    ↓
-         A / P / Ad 三张补集编译
-                    ↓
-        生成基础版与去广告版配置
-                    ↓
-       no-resolve 检查 + 独立分流验证
-                    ↓
-        manifest.json 记录 SHA-256
-                    ↓
-            检查通过才提交发布
+```mermaid
+flowchart TD
+    A[上游 lazy.conf / sr_ad_only.conf / 第三方规则] --> B[单元测试]
+    B --> C[34 张规则表同步与修补]
+    C --> D[A / P / Ad 三张补集编译]
+    D --> E[生成基础版与去广告版配置]
+    E --> F[no-resolve 检查 + 独立分流验证]
+    F --> G[manifest.json 记录 SHA-256]
+    G --> H[检查通过才提交发布]
 ```
 
-构建检查包括规则语法、IP 修饰符、结构与排序、补集规模、固定域名分流回归以及双版本的非预期差异。构建不通过，本轮不会正常提交新成品，仓库保留此前发布的文件；**自动检查验证的是规则和产物，不是 iPhone/VPS 的端到端抓包结果。**
+构建检查包括规则语法、IP 修饰符、结构与排序、补集规模、固定域名分流回归与双版本差异。构建不通过则不提交新成品，仓库保留上一版；**自动检查验证的是规则和产物，不是 iPhone/VPS 的端到端抓包结果。**
 
 [`health.yml`](.github/workflows/health.yml) 每周检查上游与自托管地址的可访问性及内容特征，并对发布成品与全部规则镜像做 SHA256 完整性校验。`manifest.json` 记录主要输入、脚本、测试、工作流、配置和镜像的哈希，方便追查哪一轮更新发生变化。
 
