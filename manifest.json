@@ -236,12 +236,12 @@
   "version": 1,
   "workflows": {
     "health.yml": {
-      "lines": 77,
-      "sha256": "fb59d193706faf3600315841cfc870dd35c77b829dbbf8dc41fb53a4cc9c9379"
+      "lines": 87,
+      "sha256": "3bb476d99e17ca3f7e08f8c79c53b8ca628f2c64b002852230311a4721bca89e"
     },
     "sync.yml": {
-      "lines": 68,
-      "sha256": "15b0dff18643723a46c3c49e0ee37955a017c5b2872d47225a2c46c338bfda31"
+      "lines": 96,
+      "sha256": "c869d7d7e6ca52d388e93382717eaafe2220e96838a6a5b332f3a1489350164f"
     }
   }
 }
