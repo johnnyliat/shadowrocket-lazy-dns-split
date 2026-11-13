@@ -18,7 +18,7 @@
 | 基础版 | 懒人配置 + DNS 防泄露 |
 | 去广告版 | 基础版 + 内嵌广告拦截规则 |
 
-两个版本的 DNS 和分流规则完全一样，只差广告规则。广告规则来自上游 `sr_ad_only.conf`，内嵌于手动规则之后、全部名单之前。
+两个版本的 DNS 和分流规则完全一样，只差广告规则。广告规则来自上游 `sr_ad_only.conf` 加一份去广告补充，内嵌于手动规则之后、全部名单之前。
 
 | 基础版 | 去广告版 |
 |:--:|:--:|
@@ -66,7 +66,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 
 一份现成的 Shadowrocket 配置文件，做了三件事：
 
-1. **以「懒人配置」为底**：分流名单和分流顺序沿用上游，另加一张每天编译的直连补集（见「直连补集」），开箱即用，不用自己写规则。
+1. **以「懒人配置」为底**：分流名单和分流顺序沿用上游，另加每天编译的直连补集与代理补集（见「补集」），开箱即用，不用自己写规则。
 2. **多一层 DNS 防泄露**：上游是先解析、再分流的通用设计，本仓库针对「不想在本地留下查询记录」的需求，在它之上再做一层优化，这是本仓库的重点。
 3. **提供去广告可选版**：内嵌一套广告拦截规则，不用另装模块，不用开 HTTPS 解密。
 
@@ -122,17 +122,19 @@ FINAL,PROXY,force-remote-dns
 
 所以本仓库每天把四张原表同步一份到 `rules/`：**内容逐行保持一致，只给 IP 规则补上 `no-resolve`**。既保住完整的分流覆盖，又堵住了本地解析。其余 30 张表是 Shadowrocket 格式，IP 规则本就带 `no-resolve`，同样逐行镜像、不做改动——成品引用的全部 34 张表都在本仓库里，客户端取到的就是构建时检查过的那一份，上游的实时变化不会绕过检查直达客户端。构建脚本逐行对比输入输出，出现任何其他差异都会失败。
 
-### 直连补集
+### 补集
 
-上游直连名单覆盖有限，大量常见国内服务不在名单里，只能走代理绕一圈。仓库每天从另两家来源编译一张补集表，`rules/SupplementA.list`，只补没有的：
+上游直连名单覆盖有限，大量常见国内服务不在名单里，只能走代理绕一圈；反过来，一些外国服务解析出的 IP 在国内，GEOIP 会误判直连。仓库每天编译三张补集表，只补没有的：
 
-- **来源**：v2fly/domain-list-community 的 `data/cn`（中国域名全集）加上 ACL4SSR 的五张精选直连表。
+- **直连补集** `rules/SupplementA.list`：来源是 v2fly/domain-list-community 的 `data/cn`（中国域名全集）、ACL4SSR 的五张精选直连表，加上 DuskWander87 的 `ChinaDirect.list`（国内厂商域名补充）。补进来的每条域名都经过双边校验：国内来源主张直连，并且没有任何一方反对——已被直连表、代理表、去广告表、手动规则覆盖的，一律不要；只要有代理表的证据就判回代理，没有例外。
+- **代理补集** `rules/SupplementP.list`：来源是 ACL4SSR 的三张代理表（ProxyGFWlist、ProxyLite、ProxyMedia）加上 GFWList。补进来的域名同样只取未被任何已有判定覆盖的；它排在全部直连判定之后、GEOIP 之前，只替 GEOIP 拿主意，翻不了已有的直连判定。
+- **去广告补充** `rules/SupplementAd.list`：来源是 DuskWander87 的 `Reject.list`（广告聚合与追踪 SDK 域名补充），与上游广告规则一起内嵌于去广告版；已被已有广告规则或手动规则覆盖的不要。
 
-补进来的每条域名都经过双边校验：国内来源主张直连，并且没有任何一方反对——已被直连表、代理表、去广告表、手动规则覆盖的，一律不要；只要有代理表的证据就判回代理，没有例外。代理与直连按服务划清：同一个服务的端点要么全走代理、要么全走直连，不会出现部分直连、部分代理的拆分。补集只含域名规则，没有 IP 规则、关键字规则和正则。数量也有守卫：与上一版相比波动超过 40%，或低于下限，整轮构建失败、不出厂。
+代理与直连按服务划清：同一个服务的端点要么全走代理、要么全走直连，不会出现部分直连、部分代理的拆分。补集只含域名规则，没有 IP 规则、关键字规则和正则。数量也有守卫：直连补集与上一版相比波动超过 40%，或低于下限，整轮构建失败、不出厂；代理补集与去广告补充只设上限。
 
 ### 分流顺序
 
-规则按先命中先赢，共八组，组内上游相对顺序不动：
+规则按先命中先赢，共九组，组内上游相对顺序不动：
 
 1. 手动直连、手动代理（`custom-rules.txt`，权力最高）
 2. 去广告规则（仅去广告版）
@@ -140,15 +142,16 @@ FINAL,PROXY,force-remote-dns
 4. 代理规则表（21 张，上游原版顺序）
 5. 直连规则表（13 张，上游原版顺序，Global/China 兜底表居尾）
 6. A 层补集（直连）
-7. `GEOIP,CN,DIRECT`（预解析经代理通道）
-8. `FINAL,PROXY,force-remote-dns`
+7. P 层补集（代理，排在直连判定之后、GEOIP 之前）
+8. `GEOIP,CN,DIRECT`（预解析经代理通道）
+9. `FINAL,PROXY,force-remote-dns`
 
 顺序按「谁说了算」排，不按直连/代理分组：越是明确的指定、证据越硬的判定，越靠前；批量名单、IP 推断、兜底依次靠后。
 
 ## 优势
 
 - **专门解决 DNS 泄露**：不是换个 DNS 地址了事，而是国内解析、境外远端解析、未知域名在代理通道里预解析，三层一起堵。
-- **开箱即用**：基于懒人配置，导入即可使用，分流名单沿用上游原版，另加双边校验过的直连补集。
+- **开箱即用**：基于懒人配置，导入即可使用，分流名单沿用上游原版，另加双边校验过的直连补集与代理补集。
 - **分流合理**：国内外分流沿用上游成熟的规则，常用国内外服务都有单独分流。
 - **去广告可选**：两个版本随时切换，平时用去广告版，遇到检测拦截的网站切到基础版。
 - **自动更新，省心**：每天自动同步上游、重新生成配置，只需在 Shadowrocket 里打开配置自动更新。
@@ -161,8 +164,8 @@ FINAL,PROXY,force-remote-dns
 **自动更新的流程**（GitHub Actions，每天北京时间约 09:07）：
 
 1. 拉取上游最新的 `lazy.conf` 和 `sr_ad_only.conf`。
-2. 同步全部 34 张规则表做镜像，补好 `no-resolve`；编译一张直连补集表（双边校验与数量守卫见上）。
-3. 打 DNS 补丁、排八组顺序，生成基础版；再内嵌广告规则，生成去广告版。
+2. 同步全部 34 张规则表做镜像，补好 `no-resolve`；编译直连补集、代理补集与去广告补充三张表（双边校验与数量守卫见上）。
+3. 打 DNS 补丁、排九组顺序，生成基础版；再内嵌广告规则，生成去广告版。
 4. 全量检查引用的规则表（IP 规则必须全部带 `no-resolve`），并做结构安检与位置断言：成品骨架或规则顺序出现预期之外的变化即停。
 5. 全部通过才提交，任何一步不对，整轮失败，线上保持上一版。
 
@@ -184,14 +187,14 @@ FINAL,PROXY,force-remote-dns
 |---|---|
 | `lazy-dns.conf` | 基础版成品，自动生成 |
 | `lazy-dns-ad.conf` | 去广告版成品，自动生成 |
-| `rules/` | 全部 34 张规则表镜像 + 1 张直连补集表，自动生成 |
+| `rules/` | 全部 34 张规则表镜像 + 3 张补集表，自动生成 |
 | `mirrors.txt` | 规则表镜像清单 |
 | `custom-rules.txt` | 附加规则，构建时内嵌进两份成品 |
 | `qrcode-raw.png`、`qrcode-ad-raw.png` | 两个版本的订阅二维码 |
 | `patch.py` | 基础版构建脚本 |
 | `patch_ad.py` | 去广告版构建脚本 |
 | `patch_lists.py` | 规则镜像构建脚本 |
-| `compile_supplement.py` | 直连补集编译脚本 |
+| `compile_supplement.py` | 补集编译脚本（直连、代理、去广告补充） |
 | `check_no_resolve.py` | 出厂检查：全量扫描 IP 规则 |
 | `LICENSE` | 许可证（本仓库自有代码与文档） |
 | `.github/workflows/` | 每日同步和每周健康检查 |
@@ -220,7 +223,8 @@ FINAL,PROXY,force-remote-dns
 - [blackmatrix7 / ios_rule_script](https://github.com/blackmatrix7/ios_rule_script)：应用分流规则集
 - [iab0x00 / ProxyRules](https://github.com/iab0x00/ProxyRules)：AI 分流规则表
 - [v2fly / domain-list-community](https://github.com/v2fly/domain-list-community)：直连补集的国内域名数据
-- [ACL4SSR / ACL4SSR](https://github.com/ACL4SSR/ACL4SSR)：直连补集的精选直连表
-- [DuskWander87 / shadowrocket-config](https://github.com/DuskWander87/shadowrocket-config)：DNS 分流思路的参考来源
+- [ACL4SSR / ACL4SSR](https://github.com/ACL4SSR/ACL4SSR)：补集的精选直连表与代理表
+- [gfwlist / gfwlist](https://github.com/gfwlist/gfwlist)：代理补集的被墙域名数据
+- [DuskWander87 / shadowrocket-config](https://github.com/DuskWander87/shadowrocket-config)：DNS 分流思路参考，直连补集与去广告补充的数据来源之一
 
 规则内容的版权归各上游所有，本仓库做的是 DNS 补丁、规则镜像、补集编译和自动构建。本仓库自有的脚本与文档以 MIT 许可证发布（见 `LICENSE` 文件）；上游配置、规则与数据仍归各自作者所有，遵循其原许可证。仅供学习和个人使用，版权方面有问题请联系处理。
