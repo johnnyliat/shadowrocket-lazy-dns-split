@@ -524,6 +524,49 @@ def collapse(entries):
     return sorted(keep)
 
 
+def covering_parent(cov, value):
+    """返回覆盖 value 的最长父后缀（或其自身），无则 None。"""
+    parts = value.split(".")
+    for i in range(len(parts)):
+        cand = ".".join(parts[i:])
+        if cand in cov.suffixes:
+            return cand
+    return None
+
+
+def contradiction_report(proxy_tagged, direct_cov, proxy_side_cov, manual_cov):
+    """跨源矛盾：代理源主张的条目被上游直连覆盖、且代理侧（上游代理表
+    + 上游本地规则）未在父级或同级覆盖它——成品顺序下判直连，与代理源
+    主张矛盾。手动规则覆盖的是有意例外，不计。返回 (full, partial)：
+    full 为整域被直连覆盖；partial 为代理子域存在（子域靠顺序优先）。
+    每项为 (kind, value, source, covering_parent)。仅供报告，不拦截。"""
+    contradicted = {}
+    for kind, value, source in proxy_tagged:
+        key = (kind, value)
+        if key in contradicted or "." not in value:
+            continue
+        if not direct_cov.covers_candidate(kind, value):
+            continue
+        if manual_cov.covers_candidate(kind, value):
+            continue
+        if proxy_side_cov.covers_candidate(kind, value):
+            continue
+        contradicted[key] = (kind, value, source,
+                             covering_parent(direct_cov, value))
+    cand_values = {v for _k, v, _s, _p in contradicted.values()}
+    child_values = set()
+    for s in list(proxy_side_cov.suffixes) + list(proxy_side_cov.exacts):
+        parts = s.split(".")
+        for i in range(1, len(parts)):
+            anc = ".".join(parts[i:])
+            if anc in cand_values:
+                child_values.add(anc)
+    full, partial = [], []
+    for item in contradicted.values():
+        (partial if item[1] in child_values else full).append(item)
+    return sorted(full), sorted(partial)
+
+
 def read_previous(path):
     """读上一版已提交的补集表，返回条数（文件不存在 -> None，首轮跳过波动检查）。"""
     if not os.path.exists(path):
@@ -556,14 +599,16 @@ def main():
     acl, acl_ip, acl_kw, acl_oth = load_acl4ssr()
     dusk_direct, _, _, _ = load_rule_list(DUSK_BASE + DUSK_DIRECT_LIST, "Dusk ChinaDirect")
     dusk_reject, _, _, _ = load_rule_list(DUSK_BASE + DUSK_REJECT_LIST, "Dusk Reject")
-    proxy_entries = []
+    acl_proxy = []
     px_ip = px_kw = px_oth = 0
     for name in ACL4SSR_PROXY_LISTS:
         e, a, b, c = load_rule_list(ACL4SSR_BASE + name, f"ACL4SSR {name}")
-        proxy_entries.extend(e)
+        acl_proxy.extend(e)
         px_ip, px_kw, px_oth = px_ip + a, px_kw + b, px_oth + c
     gfw_entries, gfw_dropped = load_gfwlist()
-    proxy_entries.extend(gfw_entries)
+    proxy_entries = acl_proxy + gfw_entries
+    proxy_tagged = ([(k, v, "ACL4SSR") for k, v in acl_proxy]
+                    + [(k, v, "GFWList") for k, v in gfw_entries])
     print(f"v2fly cn 树: {len(cn_tree)} 条目；ACL4SSR 直连: {len(acl)} 条"
           f"（丢弃 IP {acl_ip} / 关键字 {acl_kw} / 其他 {acl_oth}）；"
           f"Dusk 直连 {len(dusk_direct)} / 去广告 {len(dusk_reject)}；"
@@ -711,6 +756,20 @@ def main():
                           descendant_report(layer_a, cov["proxy"].suffixes, cov["proxy"].exacts))
     print_conflict_report("P 层父域 vs 直连子域",
                           descendant_report(layer_p, cov["direct"].suffixes, cov["direct"].exacts))
+
+    # ---- 跨源矛盾报告（仅报告，不拦截）----
+    proxy_side = Coverage()
+    proxy_side.merge(cov["proxy"])
+    proxy_side.merge(cov["local"])
+    full, partial = contradiction_report(proxy_tagged, cov["direct"],
+                                         proxy_side, cov["manual"])
+    print(f"跨源矛盾报告（上游直连 vs 代理源主张，仅报告）: 整域矛盾 {len(full)} 条 / "
+          f"部分矛盾 {len(partial)} 条（被上游直连覆盖、代理源另有主张，运行时判直连）")
+    for kind, value, source, parent in full[:20]:
+        print(f"  {kind},{value} <- 直连覆盖 {parent or '非后缀规则'}（代理源: {source}）")
+    for kind, value, source, parent in partial[:10]:
+        print(f"  部分 {kind},{value} <- 直连覆盖 {parent or '非后缀规则'}"
+              f"（代理源: {source}，存在代理子域）")
 
     # ---- 出厂守卫 ----
     for kind, value in layer_a:

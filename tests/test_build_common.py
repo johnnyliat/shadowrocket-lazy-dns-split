@@ -65,6 +65,34 @@ class TestIpRuleGuardStatus(unittest.TestCase):
         self.assertIsNone(
             ip_rule_guard_status("AND,(DOMAIN,example.com),(DOMAIN-SUFFIX,foo.com),PROXY"))
 
+    def test_no_resolve_must_be_last(self):
+        # 修饰符位置放错（写在策略之前）同样判为未守卫
+        self.assert_status("IP-CIDR,1.2.3.0/24,no-resolve,DIRECT", False)
+        self.assert_status("GEOIP,CN,no-resolve,DIRECT", False)
+        self.assert_status(
+            "AND,(IP-CIDR,1.2.3.0/24,no-resolve,DIRECT),(DST-PORT,443),PROXY",
+            False)
+        # 行尾多一个逗号仍算守卫（与既有 rstrip 容忍一致）
+        self.assert_status("IP-CIDR,1.2.3.0/24,DIRECT,no-resolve,", True)
+
+    def test_nested_logical_lines(self):
+        # 嵌套组合：每个 IP 条件各自判定，一个未守卫则整行未守卫
+        self.assert_status(
+            "AND,(OR,(IP-CIDR,1.1.1.0/24,no-resolve),"
+            "(IP-CIDR,2.2.2.0/24,no-resolve)),PROXY",
+            True)
+        self.assert_status(
+            "AND,(OR,(IP-CIDR,1.1.1.0/24,no-resolve),"
+            "(IP-CIDR,2.2.2.0/24)),PROXY",
+            False)
+        self.assert_status(
+            "OR,(IP-CIDR,1.1.1.0/24,no-resolve),(IP-ASN,12345),PROXY",
+            False)
+        # 域名值里出现 IP 类型字样（无逗号）不算 IP 条件
+        self.assertIsNone(
+            ip_rule_guard_status(
+                "AND,(DOMAIN,ip-cidr.example.com),(DST-PORT,443),PROXY"))
+
     def test_malformed_raises(self):
         for bad in [
             "IP-CIDR,999.1.1.0/24,DIRECT,no-resolve",

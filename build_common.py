@@ -71,7 +71,6 @@ def atomic_write_text(path, text):
 IP_TYPES = {"IP-CIDR", "IP-CIDR6", "IP6-CIDR", "IP-ASN", "GEOIP"}
 LOGICAL_TYPES = {"AND", "OR", "NOT"}
 _IP_TOKEN_RE = re.compile(r"(IP-CIDR6?|IP6-CIDR|IP-ASN|GEOIP)\s*,", re.I)
-_NO_RESOLVE_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_-])no-resolve(?![A-Za-z0-9_-])", re.I)
 _LABEL_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 
 
@@ -106,7 +105,8 @@ def _validate_ip_value(typ, value):
 
 def _logical_ip_guarded(body):
     """逻辑组合行（AND/OR/NOT）：每个 IP 条件必须在自己同一括号组内带上
-    精确的 no-resolve 修饰符。无 IP 条件时返回 None（不是 IP 规则）。"""
+    精确的 no-resolve 修饰符，且修饰符须为该组内最后一个参数。无 IP 条件
+    时返回 None（不是 IP 规则）。"""
     if body.count("(") != body.count(")"):
         raise ValueError("括号不平衡")
     guarded_any = False
@@ -115,7 +115,8 @@ def _logical_ip_guarded(body):
         span = body[m.end():]
         close = span.find(")")
         span = span if close < 0 else span[:close]
-        if not _NO_RESOLVE_TOKEN_RE.search(span):
+        fields = [f.strip().lower() for f in span.split(",") if f.strip() != ""]
+        if not fields or fields[-1] != "no-resolve":
             return False
     return True if guarded_any else None
 
@@ -132,7 +133,8 @@ def ip_rule_guard_status(line):
 
     适用行形（实测现状）：TYPE,VALUE[,组名/策略][,no-resolve]，最多 4 个
     字段；组名/策略字段不限制取值（QX 表用 Apple/China/Global/WeChat
-    等组名，限制取值会误杀上游合法内容）。行内 # 之后按注释截断后再判
+    等组名，限制取值会误杀上游合法内容）。no-resolve 须为最后一个参数，
+    位置放错（如写在策略之前）同样判为未守卫。行内 # 之后按注释截断后再判
     （# 不可能合法出现在 IP 规则的字段里）。
     """
     s = line.strip().lstrip("\ufeff")
@@ -157,7 +159,7 @@ def ip_rule_guard_status(line):
     rest = [f.lower() for f in fields[2:]]
     if rest.count("no-resolve") > 1:
         raise ValueError(f"no-resolve 重复出现: {line.strip()!r}")
-    return "no-resolve" in rest
+    return bool(rest) and rest[-1] == "no-resolve"
 
 
 # ---- 镜像清单与手动规则 ----

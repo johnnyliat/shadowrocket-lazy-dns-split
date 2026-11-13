@@ -83,5 +83,98 @@ class TestReadPreviousEntries(unittest.TestCase):
         self.assertIsNone(cs.read_previous_entries("/nonexistent/SupplementA.list"))
 
 
+class TestCollapse(unittest.TestCase):
+    def test_child_suffix_removed(self):
+        entries = [("suffix", "example.com"), ("suffix", "sub.example.com")]
+        self.assertEqual(cs.collapse(entries), [("suffix", "example.com")])
+
+    def test_exact_covered_by_suffix_removed(self):
+        entries = [("suffix", "example.com"), ("exact", "a.example.com")]
+        self.assertEqual(cs.collapse(entries), [("suffix", "example.com")])
+
+    def test_exact_same_value_as_suffix_removed(self):
+        entries = [("suffix", "example.com"), ("exact", "example.com")]
+        self.assertEqual(cs.collapse(entries), [("suffix", "example.com")])
+
+    def test_siblings_and_reverse_kept(self):
+        entries = [("suffix", "a.com"), ("suffix", "b.com"),
+                   ("exact", "example.com"), ("suffix", "sub.example.com")]
+        self.assertEqual(cs.collapse(entries), sorted(set(entries)))
+
+    def test_duplicates_and_empty(self):
+        self.assertEqual(cs.collapse([("suffix", "a.com"), ("suffix", "a.com")]),
+                         [("suffix", "a.com")])
+        self.assertEqual(cs.collapse([]), [])
+
+    def test_multi_level_and_idempotent(self):
+        entries = [("suffix", "x.y.example.com"), ("suffix", "y.example.com"),
+                   ("suffix", "example.com"), ("exact", "z.example.com")]
+        once = cs.collapse(entries)
+        self.assertEqual(once, [("suffix", "example.com")])
+        self.assertEqual(cs.collapse(once), once)
+
+
+class TestContradictionReport(unittest.TestCase):
+    def _cov(self, suffixes=(), exacts=()):
+        cov = cs.Coverage()
+        cov.suffixes.update(suffixes)
+        cov.exacts.update(exacts)
+        return cov
+
+    def test_full_contradiction(self):
+        direct = self._cov(["example.com"])
+        full, partial = cs.contradiction_report(
+            [("suffix", "example.com", "GFWList")], direct,
+            self._cov(), self._cov())
+        self.assertEqual(full, [("suffix", "example.com", "GFWList", "example.com")])
+        self.assertEqual(partial, [])
+
+    def test_child_of_direct_parent_reported_with_parent(self):
+        direct = self._cov(["example.com"])
+        full, _ = cs.contradiction_report(
+            [("suffix", "sub.example.com", "ACL4SSR")], direct,
+            self._cov(), self._cov())
+        self.assertEqual(full, [("suffix", "sub.example.com", "ACL4SSR", "example.com")])
+
+    def test_proxy_or_manual_coverage_excluded(self):
+        direct = self._cov(["example.com"])
+        proxy_side = self._cov(["example.com"])
+        full, partial = cs.contradiction_report(
+            [("suffix", "example.com", "GFWList")], direct,
+            proxy_side, self._cov())
+        self.assertEqual((full, partial), ([], []))
+        manual = self._cov(["example.com"])
+        full, partial = cs.contradiction_report(
+            [("suffix", "example.com", "GFWList")], direct,
+            self._cov(), manual)
+        self.assertEqual((full, partial), ([], []))
+
+    def test_partial_when_proxy_child_exists(self):
+        direct = self._cov(["example.com"])
+        proxy_side = self._cov(["sub.example.com"])
+        full, partial = cs.contradiction_report(
+            [("suffix", "example.com", "GFWList")], direct,
+            proxy_side, self._cov())
+        self.assertEqual(full, [])
+        self.assertEqual(partial, [("suffix", "example.com", "GFWList", "example.com")])
+
+    def test_bare_tld_skipped_and_duplicates_merged(self):
+        direct = self._cov(["example.com"])
+        full, partial = cs.contradiction_report(
+            [("suffix", "hk", "GFWList"),
+             ("suffix", "example.com", "ACL4SSR"),
+             ("suffix", "example.com", "GFWList")],
+            direct, self._cov(), self._cov())
+        self.assertEqual(full, [("suffix", "example.com", "ACL4SSR", "example.com")])
+        self.assertEqual(partial, [])
+
+    def test_exact_entry_covered_by_direct_suffix(self):
+        direct = self._cov(["example.com"])
+        full, _ = cs.contradiction_report(
+            [("exact", "a.example.com", "ACL4SSR")], direct,
+            self._cov(), self._cov())
+        self.assertEqual(full, [("exact", "a.example.com", "ACL4SSR", "example.com")])
+
+
 if __name__ == "__main__":
     unittest.main()

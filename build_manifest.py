@@ -2,12 +2,12 @@
 """build_manifest.py — 生成 manifest.json：本次构建的确定性来源记录。
 
 内容：上游文件、仓库输入（mirrors.txt / custom-rules.txt）、构建脚本、
-两份成品与全部规则表的 SHA256 与行数。不含时间戳与随机值：输入不变则
-文件逐字节不变，git 只在内容真正变化时才提交它。
+单元测试、GitHub 工作流、两份成品与全部规则表的 SHA256 与行数。不含时
+间戳与随机值：输入不变则文件逐字节不变，git 只在内容真正变化时才提交它。
 
 用途：构建溯源（某份成品由哪些输入、哪份代码生成，一查便知）；每周健
-康检查用它核对线上成品的 SHA256 是否与构建记录一致（内容校验，不只看
-HTTP 200）。
+康检查用它核对线上成品与规则镜像的 SHA256 是否与构建记录一致（内容校
+验，不只看 HTTP 200）。
 
 用法（在仓库根目录运行）: python3 build_manifest.py <上游 lazy.conf> <上游 sr_ad_only.conf>
 """
@@ -47,6 +47,18 @@ def build_manifest(upstream_lazy, upstream_ad, root="."):
         manifest["inputs"][name] = record(os.path.join(root, name))
     manifest["scripts"] = {name: record(os.path.join(root, name))
                            for name in SCRIPTS}
+    tests_dir = os.path.join(root, "tests")
+    if not os.path.isdir(tests_dir):
+        fail(f"manifest 输入缺失: {tests_dir}")
+    manifest["tests"] = {name: record(os.path.join(tests_dir, name))
+                         for name in sorted(os.listdir(tests_dir))
+                         if name.endswith(".py")}
+    workflows_dir = os.path.join(root, ".github", "workflows")
+    if not os.path.isdir(workflows_dir):
+        fail(f"manifest 输入缺失: {workflows_dir}")
+    manifest["workflows"] = {name: record(os.path.join(workflows_dir, name))
+                             for name in sorted(os.listdir(workflows_dir))
+                             if name.endswith((".yml", ".yaml"))}
     manifest["products"] = {name: record(os.path.join(root, name))
                             for name in PRODUCTS}
     rules_dir = os.path.join(root, "rules")
@@ -65,7 +77,8 @@ def main(upstream_lazy, upstream_ad, root="."):
     out_path = os.path.join(root, "manifest.json")
     atomic_write_text(out_path, text)
     print(f"OK: manifest.json（{len(manifest['rules'])} 张规则表、"
-          f"{len(manifest['scripts'])} 个脚本）-> {out_path}")
+          f"{len(manifest['scripts'])} 个脚本、{len(manifest['tests'])} 个测试文件、"
+          f"{len(manifest['workflows'])} 个工作流）-> {out_path}")
     return manifest
 
 

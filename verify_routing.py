@@ -63,6 +63,29 @@ OTHER_TYPES = {"USER-AGENT", "URL-REGEX", "DST-PORT", "SRC-IP", "SRC-PORT",
                "PROCESS-NAME", "RULE-SET", "DOMAIN-SET", "IN-PORT", "PROTOCOL"}
 KNOWN_TYPES = DOMAIN_TYPES | IP_TYPES | LOGICAL_TYPES | OTHER_TYPES
 
+_DOMAIN_COND_RE = re.compile(
+    r"(DOMAIN-SUFFIX|HOST-SUFFIX|DOMAIN-WILDCARD|HOST-WILDCARD|"
+    r"DOMAIN-KEYWORD|HOST-KEYWORD|DOMAIN|HOST)\s*,", re.I)
+
+
+def _reject_logical_domain_rule(s, where):
+    """组合规则含域名条件时裁决引擎建模不了：拒绝验证通过（fail-closed），
+    等人工确认语义后再放行。无域名条件的组合规则（纯 IP/端口）不影响域名
+    裁决，跳过即可。现行全部规则表与上游原文中组合规则为 0 条，此检查
+    平时不触发，只防将来上游新增。"""
+    if _DOMAIN_COND_RE.search(s):
+        check(False, f"{where} 出现含域名条件的组合规则，验证器无法建模: {s!r}")
+
+
+def classify_shadow(shadow_policy, expected):
+    """通配遮蔽定性：返回 "fail"（危险方向，停发）或 "report"（仅报告）。
+    危险方向只有一种：代理补集条目被直连通配规则遮蔽——本应代理的域名
+    实际走了直连。其余方向（直连条目被代理/拦截遮蔽成死规则、去广告条
+    目被遮蔽致拦截失效、同策略冗余）都不改变安全属性，只报告。"""
+    if expected == "PROXY" and shadow_policy == "DIRECT":
+        return "fail"
+    return "report"
+
 
 class VerifyError(Exception):
     pass
@@ -76,7 +99,9 @@ def check(cond, msg):
 # ---------------- no-resolve 前提（独立实现） ----------------
 
 def _ip_guard_ok(body):
-    """body 已去注释。返回 True/False；非 IP 行返回 None。"""
+    """body 已去注释。返回 True/False；非 IP 行返回 None。
+    no-resolve 须为最后一个参数（与 build_common 的严格判定一致，位置
+    放错同样判为未守卫）。"""
     head = body.split(",", 1)[0].strip().upper()
     if head in LOGICAL_TYPES:
         if body.count("(") != body.count(")"):
@@ -87,14 +112,14 @@ def _ip_guard_ok(body):
             span = body[m.end():]
             close = span.find(")")
             span = span if close < 0 else span[:close]
-            fields = [f.strip().lower() for f in span.split(",")]
-            if "no-resolve" not in fields:
+            fields = [f.strip().lower() for f in span.split(",") if f.strip() != ""]
+            if not fields or fields[-1] != "no-resolve":
                 return False
         return True if found else None
     if head not in IP_TYPES:
         return None
     fields = [f.strip().lower() for f in body.rstrip(",").split(",")]
-    return "no-resolve" in fields
+    return fields[-1] == "no-resolve"
 
 
 def check_no_resolve_premise(lines, allow_bare_geoip):
@@ -136,6 +161,8 @@ def parse_table_file(path, policy):
         typ = parts[0].upper()
         check(typ in KNOWN_TYPES and len(parts) >= 2,
               f"规则表 {path} 出现无法解析的行: {s!r}")
+        if typ in LOGICAL_TYPES:
+            _reject_logical_domain_rule(s, f"规则表 {path}")
         if typ in DOMAIN_TYPES:
             rules.append((typ, parts[1].lower(), policy))
         # IP/逻辑/其他类型不参与域名裁决（IP 前提另行验证）
@@ -189,6 +216,8 @@ class Product:
                 typ = parts[0].upper()
                 check(typ in KNOWN_TYPES and len(parts) >= 3,
                       f"{path} [Rule] 行无法解析: {s!r}")
+                if typ in LOGICAL_TYPES:
+                    _reject_logical_domain_rule(s, f"{path} [Rule]")
                 if typ in DOMAIN_TYPES:
                     self.rules.append((typ, parts[1].lower(),
                                        parts[2].strip().upper()))
@@ -476,8 +505,9 @@ def main(base_path, ad_path):
 
     # 补集属性：后缀条目用合成子域名探针，精确条目用其自身。
     # 探针失配时先诊断首命中规则：若为更早的通配规则遮蔽（编译器覆盖
-    # 计算不含通配规则，已知局限、仅报告不拦截——通配遮蔽的条目是死
-    # 规则而非误分流），记入遮蔽清单；其余失配一律失败。
+    # 计算不含通配规则），按遮蔽策略定性：代理条目被直连通配遮蔽是危
+    # 险方向（本应代理的域名实际直连），直接失败；其余方向（死规则、
+    # 拦截失效、同策略冗余）记入遮蔽清单、仅报告；其余失配一律失败。
     shadowed = []
     n_prop = 0
 
@@ -489,8 +519,14 @@ def main(base_path, ad_path):
             if got != expected:
                 fm = product.first_match(domain)
                 if fm and fm[1] in ("DOMAIN-WILDCARD", "HOST-WILDCARD"):
+                    if classify_shadow(fm[3], expected) == "fail":
+                        check(False,
+                              f"{source} 条目 {typ},{value} 被直连通配规则 "
+                              f"{fm[1]},{fm[2]} 遮蔽，在 {product.path} 判 {got}"
+                              f"（mock={mock}），预期 {expected}")
                     shadowed.append(f"{source} {typ},{value} 被通配规则 "
-                                    f"{fm[1]},{fm[2]} 遮蔽（{product.path}）")
+                                    f"{fm[1]},{fm[2]},{fm[3]} 遮蔽"
+                                    f"（{product.path}，预期 {expected}，实际 {got}）")
                     return
                 check(False,
                       f"{source} 条目 {typ},{value} 在 {product.path} 判 {got}"
@@ -529,6 +565,15 @@ def main(base_path, ad_path):
             probe.add(value)
             if typ != "DOMAIN":
                 probe.add("www." + value)
+    # 全量枚举：成品内全部精确/后缀规则值都当测试输入（后缀取裸名与合成
+    # 子域两个探针），双版本一致不再只是抽样。关键字/通配规则无可靠合成
+    # 输入法，仍由固定样本与夹具测试覆盖。
+    for typ, value, _policy in base.rules:
+        if typ in ("DOMAIN", "HOST"):
+            probe.add(value)
+        elif typ in ("DOMAIN-SUFFIX", "HOST-SUFFIX"):
+            probe.add(value)
+            probe.add(f"{PROBE_LABEL}.{value}")
     n_cross = 0
     for d in sorted(probe):
         for mock in (None, True, False):

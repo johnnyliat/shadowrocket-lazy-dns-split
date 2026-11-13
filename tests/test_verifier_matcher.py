@@ -127,6 +127,65 @@ class TestPremise(unittest.TestCase):
         self.assertEqual(len(vr.check_no_resolve_premise(
             ["GEOIP,CN,DIRECT", "GEOIP,CN,DIRECT"], True)), 1)
 
+    def test_misplaced_no_resolve_fails(self):
+        self.assertEqual(len(vr.check_no_resolve_premise(
+            ["IP-CIDR,1.2.3.0/24,no-resolve,DIRECT"], True)), 1)
+        self.assertEqual(len(vr.check_no_resolve_premise(
+            ["AND,(IP-CIDR,1.2.3.0/24,no-resolve,DIRECT),(DST-PORT,443),PROXY"],
+            True)), 1)
+
+    def test_nested_logical_premise(self):
+        self.assertEqual(vr.check_no_resolve_premise(
+            ["AND,(OR,(IP-CIDR,1.1.1.0/24,no-resolve),"
+             "(IP-CIDR,2.2.2.0/24,no-resolve)),PROXY"], True), [])
+        self.assertEqual(len(vr.check_no_resolve_premise(
+            ["AND,(OR,(IP-CIDR,1.1.1.0/24,no-resolve),"
+             "(IP-CIDR,2.2.2.0/24)),PROXY"], True)), 1)
+
+
+class TestClassifyShadow(unittest.TestCase):
+    def test_dangerous_direction_fails(self):
+        self.assertEqual(vr.classify_shadow("DIRECT", "PROXY"), "fail")
+
+    def test_other_directions_report_only(self):
+        for shadow, expected in [("PROXY", "DIRECT"), ("REJECT", "DIRECT"),
+                                 ("DIRECT", "REJECT"), ("PROXY", "REJECT"),
+                                 ("DIRECT", "DIRECT"), ("PROXY", "PROXY"),
+                                 ("REJECT", "REJECT")]:
+            self.assertEqual(vr.classify_shadow(shadow, expected), "report",
+                             (shadow, expected))
+
+
+class TestLogicalDomainRejection(VerifierFixture):
+    def test_table_logical_domain_line_rejected(self):
+        self._write("rules/T1.list",
+                    "AND,(DOMAIN-SUFFIX,log.example),(DST-PORT,443),PROXY\n")
+        with self.assertRaises(vr.VerifyError):
+            vr.Product(self.write_product(vr.DUAL_DOH, "GEOIP,CN,DIRECT,no-resolve"))
+
+    def test_table_ip_only_logical_line_ok(self):
+        self._write("rules/T1.list",
+                    "AND,(IP-CIDR,1.2.3.0/24,no-resolve),(DST-PORT,443),PROXY\n")
+        p = vr.Product(self.write_product(vr.DUAL_DOH, "GEOIP,CN,DIRECT,no-resolve"))
+        self.assertEqual(p.decide("manual.example"), "DIRECT")
+
+    def test_unknown_type_rejected(self):
+        self._write("rules/T1.list", "FOO-BAR,example.com\n")
+        with self.assertRaises(vr.VerifyError):
+            vr.Product(self.write_product(vr.DUAL_DOH, "GEOIP,CN,DIRECT,no-resolve"))
+
+    def test_inline_logical_domain_line_rejected(self):
+        text = (GENERAL.format(dns=vr.DUAL_DOH)
+                + "[Rule]\n"
+                + "AND,(DOMAIN-SUFFIX,inline.example),(DST-PORT,443),PROXY\n"
+                + "GEOIP,CN,DIRECT,no-resolve\n"
+                + "FINAL,PROXY,force-remote-dns\n")
+        path = os.path.join(self.tmp.name, "prod2.conf")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+        with self.assertRaises(vr.VerifyError):
+            vr.Product(path)
+
 
 class TestDnsInterlock(VerifierFixture):
     def test_matched_pairs_pass(self):
