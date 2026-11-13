@@ -2,6 +2,13 @@
 """check_no_resolve.py — 出厂检查：扫描成品配置的全部规则，断言每一条
 IP 类规则（IP-CIDR / IP-CIDR6 / IP6-CIDR / IP-ASN / GEOIP）都带 no-resolve。
 
+唯一的例外（DNS 配对联动锁的另一半）：成品的 GEOIP,CN,DIRECT 行在
+dns-server 带有 #proxy 时允许不带 no-resolve——此时预解析经隧道走国外
+DoH，国内 DNS 看不到查询，裸 GEOIP 是新架构有意的设计，不是漏洞。
+配对关系本身由 patch.py 断言（GEOIP 无 no-resolve 当且仅当 dns-server
+带 #proxy）；本守卫只认"带 #proxy 才放行裸 GEOIP"，其余一律零容忍，
+且裸 GEOIP 行最多只能有一条（即成品自己的那条）。规则表里仍零容忍。
+
 背景: 2026-11-08 的 DNS 泄露正是因为四张 QuantumultX 格式表的 IP 规则
 不带 no-resolve、而原构建只检查主配置文本、没查远程表内容。此脚本把那次
 人工全链审阅固化为每日自动守卫：本地规则行 + 全部 RULE-SET 表逐张扫描，
@@ -69,19 +76,31 @@ def violations(lines):
 def main(paths):
     urls = set()
     for p in paths:
-        sec, rule_lines = None, []
+        sec, rule_lines, general_lines = None, [], []
         for raw in open(p, encoding="utf-8"):
             s = raw.strip()
             if s.startswith("[") and s.endswith("]"):
                 sec = s
                 continue
-            if sec != "[Rule]" or not s or s.startswith("#"):
+            if not s or s.startswith("#"):
+                continue
+            if sec == "[General]":
+                general_lines.append(s)
+            if sec != "[Rule]":
                 continue
             rule_lines.append(s)
             m = RULESET.match(s)
             if m:
                 urls.add(m.group(1))
+        dns_has_proxy = any(l.startswith("dns-server =") and "#proxy" in l
+                            for l in general_lines)
+        bare_geoip = sum(1 for l in rule_lines if l == "GEOIP,CN,DIRECT")
+        if bare_geoip > 1:
+            fail(f"{p} 出现 {bare_geoip} 条裸 GEOIP 行（最多允许 1 条）")
         bad = violations(rule_lines)
+        if dns_has_proxy:
+            # 联动锁例外：仅成品自己的裸 GEOIP 行可放行，且仅在 #proxy 配对时
+            bad = [b for b in bad if b != "GEOIP,CN,DIRECT"]
         if bad:
             fail(f"{p} 本地 IP 规则无 no-resolve: {bad[0]}（共 {len(bad)} 条）")
     total_bad = 0
