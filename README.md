@@ -1,7 +1,5 @@
 <h1 align="center">Shadowrocket 懒人配置 · DNS 国内外分流</h1>
 
-<p align="center">DNS 分流与防泄漏方案：基于原版懒人配置，调整 DNS 路径，补充直连与代理规则；提供基础版、去广告版，每日自动构建。</p>
-
 <p align="center">
   <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml"><img alt="每日同步" src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/sync.yml/badge.svg"></a>
   <a href="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml"><img alt="每周健康检查" src="https://github.com/johnnyliat/shadowrocket-lazy-dns-split/actions/workflows/health.yml/badge.svg"></a>
