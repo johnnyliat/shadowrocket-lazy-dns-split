@@ -34,15 +34,17 @@ jobs:
           }
           check "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
           check "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_ad_only.conf"
-          curl -fsSL --retry 3 -o /tmp/lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
+          curl -fsSL --retry 3 -o /tmp/lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf" || { echo "::error::上游 lazy.conf 下载失败，无法提取规则集清单"; exit 1; }
           grep -oE "RULE-SET,https://[^,]+" /tmp/lazy.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/urls.txt
+          [ -s /tmp/urls.txt ] || { echo "::error::未从上游 lazy.conf 提取到规则集链接"; exit 1; }
           echo "Rule-sets found: $(wc -l < /tmp/urls.txt)"
           while IFS= read -r u; do check "$u"; done < /tmp/urls.txt
           echo "First-party files (GitHub Raw):"
           check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf"
           check "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns-ad.conf"
-          curl -fsSL --retry 3 -o /tmp/lazy-dns.conf "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf"
+          curl -fsSL --retry 3 -o /tmp/lazy-dns.conf "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/lazy-dns.conf" || { echo "::error::自家成品下载失败，无法提取镜像清单"; exit 1; }
           grep -oE "RULE-SET,https://[^,]+" /tmp/lazy-dns.conf | sed 's/^RULE-SET,//' | sort -u > /tmp/selfurls.txt
+          [ -s /tmp/selfurls.txt ] || { echo "::error::未从自家成品提取到镜像链接"; exit 1; }
           echo "Self-hosted rule-sets found: $(wc -l < /tmp/selfurls.txt)"
           while IFS= read -r u; do check "$u"; done < /tmp/selfurls.txt
           if [ "$fail" -ne 0 ]; then
@@ -50,4 +52,3 @@ jobs:
             exit 1
           fi
           echo "All URLs healthy."
-          
