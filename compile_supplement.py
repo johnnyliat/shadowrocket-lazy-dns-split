@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""compile_supplement.py — 编译直连补集：把多家上游的"国内直连"判断，
-融合成一张自托管规则表（SupplementA.list），供成品引用。
+"""compile_supplement.py — 编译三张补集：直连补集（SupplementA.list）、
+代理补集（SupplementP.list）、去广告补充（SupplementAd.list）。把多家上游的
+"国内直连" / "国外代理" / "广告追踪"判断融合成自托管规则表，供成品引用。
 
 为什么需要补集:
   懒人配置的直连名单（blackmatrix7 服务表 + QX China 表）覆盖有限，
@@ -9,10 +10,19 @@
   所以本脚本不做"搬运"，做"编译 + 双边校验"。
 
 输入源（全部每天现取）:
+  直连补集（A 层）:
   - v2fly/domain-list-community 的 data/cn（递归展开 include:，
     即 tld-cn + geolocation-cn 下全部 *-cn 分类）
   - ACL4SSR 的 AccelerateDirectSites / GoogleCN / ChinaOneKeyLogin /
     ChinaDNS / ChinaNet 五张精选表
+  - DuskWander87/shadowrocket-config 的 rules/ChinaDirect.list
+    （手工维护的国内厂商域名补充）
+  代理补集（P 层）:
+  - ACL4SSR 的 ProxyGFWlist / ProxyLite / ProxyMedia 三张代理表
+  - gfwlist/gfwlist 的 gfwlist.txt（Base64 解码后取域名，@@ 白名单行丢弃）
+  去广告补充:
+  - DuskWander87/shadowrocket-config 的 rules/Reject.list
+    （手工维护的广告聚合 / 追踪 SDK 域名补充）
 
 双边校验（不误伤的核心）:
   一条候选域名判直连，当且仅当——国内源主张它，并且没有任何一方反对它。
@@ -23,6 +33,16 @@
   直连、其余走代理，会让该服务同时看到真实 IP 与代理出口 IP，起不到
   隔离作用。故本脚本不设任何凌驾于代理表之上的直连层。
   另：带 @ads 标记的条目（社区标注的广告/追踪域）不要。
+  P 层镜像同一原则、方向相反：一条候选判代理，当且仅当代理源主张它，
+  并且它未被任何已有判定覆盖（直连/代理/去广告/手动/本地任一覆盖都
+  算重复，一律不补）。P 层排在全部直连判定之后、GEOIP 之前：它只替
+  GEOIP 拿主意（外国服务即使解析出国内 IP 也走代理），永远翻不了已有
+  的直连判定；代理方向失败也安全（走代理一定通），故不设"直连证据
+  否决"——与 A 层的代理否决不对称，是有意的（直连判错会泄露、会打不
+  开，代理判错只慢一点）。
+  去广告补充：候选被已有去广告覆盖（重复）或被手动规则覆盖（明确意
+  图优先）的一律不补；直连/代理覆盖不拦（去广告组排在分流组之前，
+  是既定顺序）。
 
 丢弃（计数并报告，不静默）:
   - regexp: 条目：Shadowrocket 规则表表达不了正则；
@@ -32,13 +52,17 @@
 出厂守卫（任一不符 exit 1，整轮构建失败、线上保持上一版）:
   - 输出行只允许 DOMAIN-SUFFIX / DOMAIN 两种，且域名合法；
   - 与"已有判定"覆盖零重叠（减法算完再断言一遍）；
-  - 数量下限/上限 + 与上一版相比波动超过 40% 即失败（防上游异常删减）。
+  - A 层数量下限/上限 + 与上一版相比波动超过 40% 即失败（防上游异常删减）；
+  - P 层与去广告补充只设上限（500 / 200）：数量跌落是安全方向（落回
+    FINAL 代理 / 少拦几条），且下载与解析失败本身就会让构建失败，
+    故不设下限与波动检查，上限只防格式剧变导致的条目爆炸。
 
 用法（在仓库根目录运行；CI 里 patch_lists.py 之后、patch.py 之前）:
   python3 compile_supplement.py --v2fly-dir <domain-list-community/data>
       --lazy <上游 lazy.conf> --ad <上游 sr_ad_only.conf>
-  v2fly 数据由工作流用 git clone --depth 1 现取（约 7MB），ACL4SSR 五张表
-  由本脚本联网拉取（3 次重试）。输出写 rules/SupplementA.list
+  v2fly 数据由工作流用 git clone --depth 1 现取（约 7MB），ACL4SSR 表、
+  DuskWander87 两表与 GFWList 由本脚本联网拉取（3 次重试）。输出写
+  rules/SupplementA.list、rules/SupplementP.list 与 rules/SupplementAd.list
   （与成品引用的自托管镜像同目录）。
 """
 import argparse
@@ -57,11 +81,22 @@ ACL4SSR_BASE = "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/"
 ACL4SSR_LISTS = ["Ruleset/AccelerateDirectSites.list", "Ruleset/GoogleCN.list",
                  "Ruleset/ChinaOneKeyLogin.list", "Ruleset/ChinaDNS.list",
                  "Ruleset/ChinaNet.list"]
+# 代理补集的三张 ACL4SSR 表在 Clash/ 直属目录（与直连五张表的 Ruleset/ 不同）。
+ACL4SSR_PROXY_LISTS = ["ProxyGFWlist.list", "ProxyLite.list", "ProxyMedia.list"]
+
+DUSK_BASE = "https://raw.githubusercontent.com/DuskWander87/shadowrocket-config/main/rules/"
+DUSK_DIRECT_LIST = "ChinaDirect.list"
+DUSK_REJECT_LIST = "Reject.list"
+
+GFWLIST_URL = "https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt"
 
 # 数量守卫：下限/上限留足余量（2026-11-13 实测 A 层 3,047 条），
 # 防的是上游断供/格式剧变，不是卡精确值；波动阈值取 40%（与 NZNL31 同口径）。
 MIN_A, MAX_A = 800, 6000
 MAX_DRIFT = 0.40
+# P 层与去广告补充只设上限（见文档守卫节）：实测 P 层约 40-60 条、
+# 去广告补充约 15 条，上限留足余量。
+MAX_P, MAX_AD_SUPP = 500, 200
 
 DOMAIN_RE = re.compile(r"^[a-z0-9._-]+$")
 RULESET_RE = re.compile(r"^RULE-SET,(https://[^,]+),([^,]+)")
@@ -312,36 +347,82 @@ def expand_cn_tree(data_dir):
     return collected
 
 
+def load_rule_list(url, label):
+    """拉取一张规则表，返回 (entries, dropped_ip, dropped_kw, dropped_other)，
+    entries 为 [(kind, value)]，只留域名规则。IP、关键字与 PROCESS-NAME /
+    URL-REGEX 等非域名规则计数丢弃：它们不影响域名判定，丢弃不改变分流
+    语义；域名行无法解析或整表无域名规则则失败（格式剧变时拦下）。"""
+    entries, dropped_ip, dropped_kw, dropped_other = [], 0, 0, 0
+    text = fetch(url)
+    if text.lstrip().startswith("<"):
+        fail(f"{label} 返回的像是 HTML 错误页")
+    n = 0
+    for raw in text.splitlines():
+        s = raw.strip()
+        if not s or s.startswith("#") or s.startswith("//"):
+            continue
+        parts = [x.strip() for x in s.split(",")]
+        typ = parts[0].upper()
+        if typ in ("DOMAIN-SUFFIX", "DOMAIN"):
+            if len(parts) < 2 or not DOMAIN_RE.match(parts[1].lower()):
+                fail(f"{label} 行无法解析: {s!r}")
+            entries.append(("suffix" if typ == "DOMAIN-SUFFIX" else "exact",
+                            parts[1].lower()))
+            n += 1
+        elif typ.startswith("IP-"):
+            dropped_ip += 1
+        elif typ == "DOMAIN-KEYWORD":
+            dropped_kw += 1
+        else:
+            dropped_other += 1
+    if n < 1:
+        fail(f"{label} 没有解析出任何域名规则")
+    return entries, dropped_ip, dropped_kw, dropped_other
+
+
 def load_acl4ssr():
-    """拉取 ACL4SSR 五张精选表，返回 [(kind, value)]（只留域名规则；
-    IP 与关键字规则计数丢弃）。"""
-    entries, dropped_ip, dropped_kw = [], 0, 0
+    """拉取 ACL4SSR 五张精选直连表，返回 [(kind, value)] 与丢弃计数。"""
+    entries, dip, dkw, doth = [], 0, 0, 0
     for name in ACL4SSR_LISTS:
-        text = fetch(ACL4SSR_BASE + name)
-        if text.lstrip().startswith("<"):
-            fail(f"ACL4SSR {name} 返回的像是 HTML 错误页")
-        n = 0
-        for raw in text.splitlines():
-            s = raw.strip()
-            if not s or s.startswith("#") or s.startswith("//"):
-                continue
-            parts = [x.strip() for x in s.split(",")]
-            typ = parts[0].upper()
-            if typ in ("DOMAIN-SUFFIX", "DOMAIN"):
-                if len(parts) < 2 or not DOMAIN_RE.match(parts[1].lower()):
-                    fail(f"ACL4SSR {name} 行无法解析: {s!r}")
-                entries.append(("suffix" if typ == "DOMAIN-SUFFIX" else "exact",
-                                parts[1].lower()))
-                n += 1
-            elif typ.startswith("IP-"):
-                dropped_ip += 1
-            elif typ == "DOMAIN-KEYWORD":
-                dropped_kw += 1
-            else:
-                fail(f"ACL4SSR {name} 出现未知规则类型: {s!r}")
-        if n < 1:
-            fail(f"ACL4SSR {name} 没有解析出任何域名规则")
-    return entries, dropped_ip, dropped_kw
+        e, a, b, c = load_rule_list(ACL4SSR_BASE + name, f"ACL4SSR {name}")
+        entries.extend(e)
+        dip, dkw, doth = dip + a, dkw + b, doth + c
+    return entries, dip, dkw, doth
+
+
+def load_gfwlist():
+    """拉取并解析 GFWList：文件整体 Base64 编码，解码后按 AutoProxy 语法
+    取域名。@@ 白名单行是"不代理"的意思，丢弃（不是代理证据）；含通配、
+    路径、端口、IP 字面量的行只取干净的域名部分，取不出则丢弃计数。"""
+    import base64
+    text = fetch(GFWLIST_URL)
+    try:
+        decoded = base64.b64decode("".join(text.split())).decode("utf-8", errors="replace")
+    except Exception as e:
+        fail(f"GFWList Base64 解码失败: {e}")
+    entries, dropped = set(), 0
+    for raw in decoded.splitlines():
+        s = raw.strip()
+        if not s or s.startswith("!") or s.startswith("[") or s.startswith("@@"):
+            continue
+        s = re.sub(r"^https?://", "", s)
+        s = re.sub(r"^\|+", "", s)
+        s = s.split("/")[0].split("^")[0].split("$")[0].split("*")[0].strip(".").lower()
+        s = s.split(":")[0]
+        if (not s or "." not in s or " " in s or "%" in s or "_" in s
+                or not DOMAIN_RE.match(s)):
+            dropped += 1
+            continue
+        try:
+            ipaddress.ip_address(s)
+            dropped += 1
+            continue
+        except ValueError:
+            pass
+        entries.add(("suffix", s))
+    if not entries:
+        fail("GFWList 没有解析出任何域名")
+    return sorted(entries), dropped
 
 
 def collapse(entries):
@@ -397,11 +478,24 @@ def main():
     print(f"已有判定覆盖: 直连后缀 {len(cov['direct'].suffixes)} / 代理后缀 "
           f"{len(cov['proxy'].suffixes)} / 去广告后缀 {len(cov['ad'].suffixes)}")
 
-    # ---- 候选：v2fly cn 树 + ACL4SSR ----
+    # ---- 候选：v2fly cn 树 + ACL4SSR + Dusk + GFWList ----
     cn_tree = expand_cn_tree(args.v2fly_dir)
-    acl, acl_ip, acl_kw = load_acl4ssr()
-    print(f"v2fly cn 树: {len(cn_tree)} 条目；ACL4SSR: {len(acl)} 条"
-          f"（丢弃 IP {acl_ip} / 关键字 {acl_kw}）")
+    acl, acl_ip, acl_kw, acl_oth = load_acl4ssr()
+    dusk_direct, _, _, _ = load_rule_list(DUSK_BASE + DUSK_DIRECT_LIST, "Dusk ChinaDirect")
+    dusk_reject, _, _, _ = load_rule_list(DUSK_BASE + DUSK_REJECT_LIST, "Dusk Reject")
+    proxy_entries = []
+    px_ip = px_kw = px_oth = 0
+    for name in ACL4SSR_PROXY_LISTS:
+        e, a, b, c = load_rule_list(ACL4SSR_BASE + name, f"ACL4SSR {name}")
+        proxy_entries.extend(e)
+        px_ip, px_kw, px_oth = px_ip + a, px_kw + b, px_oth + c
+    gfw_entries, gfw_dropped = load_gfwlist()
+    proxy_entries.extend(gfw_entries)
+    print(f"v2fly cn 树: {len(cn_tree)} 条目；ACL4SSR 直连: {len(acl)} 条"
+          f"（丢弃 IP {acl_ip} / 关键字 {acl_kw} / 其他 {acl_oth}）；"
+          f"Dusk 直连 {len(dusk_direct)} / 去广告 {len(dusk_reject)}；"
+          f"代理源 {len(proxy_entries)} 条（ACL4SSR 代理表丢弃 IP {px_ip} / "
+          f"关键字 {px_kw} / 其他 {px_oth}；GFWList {len(gfw_entries)} 条、丢弃 {gfw_dropped}）")
 
     dropped_re, dropped_kw, dropped_ads = 0, 0, 0
 
@@ -452,13 +546,58 @@ def main():
             acl_proxy_dropped += 1
             continue
         layer_a.append((kind, value))
+    dusk_proxy_dropped, dusk_blocked = 0, 0
+    for kind, value in dusk_direct:
+        if blocked_by([cov["direct"], cov["ad"], cov["manual"], cov["local"]],
+                      kind, value):
+            dusk_blocked += 1
+            continue
+        if blocked_by([cov["proxy"]], kind, value):
+            dusk_proxy_dropped += 1
+            continue
+        layer_a.append((kind, value))
     print(f"丢弃: 正则 {dropped_re} / 关键字 {dropped_kw} / @ads {dropped_ads}；"
           f"cn 树拦下：仅代理证据 {a_blocked_proxy_only}、仅其他已有判定 "
           f"{a_blocked_other_only}、两者都有 {a_blocked_both}；ACL4SSR 被已有判定拦下 "
-          f"{acl_blocked}、被代理证据拦下 {acl_proxy_dropped}")
+          f"{acl_blocked}、被代理证据拦下 {acl_proxy_dropped}；Dusk 直连被已有判定拦下 "
+          f"{dusk_blocked}、被代理证据拦下 {dusk_proxy_dropped}")
 
     layer_a = collapse(layer_a)
     print(f"补集规模: A 层 {len(layer_a)} 条")
+
+    # ---- P 层：代理补集（ACL4SSR 代理表 + GFWList，减去全部已有判定）----
+    # 单标签条目（裸 TLD，如 ca / tw / hk）不收：它会把该 TLD 下全部未
+    # 覆盖域名改判代理，过于粗糙；未覆盖域仍有 GEOIP + FINAL 兜底（国外
+    # 归属照样走代理），不收 TLD 只损失一点速度，不损失正确性。
+    layer_p = []
+    p_blocked = p_tld = 0
+    for kind, value in proxy_entries:
+        if "." not in value:
+            p_tld += 1
+            continue
+        if blocked_by([cov["direct"], cov["proxy"], cov["ad"], cov["manual"],
+                       cov["local"]], kind, value):
+            p_blocked += 1
+            continue
+        layer_p.append((kind, value))
+    layer_p = collapse(layer_p)
+    print(f"补集规模: P 层 {len(layer_p)} 条（被已有判定拦下 {p_blocked} / "
+          f"裸 TLD 丢弃 {p_tld}）")
+
+    # ---- 去广告补充（Dusk Reject.list，减去已有去广告与手动覆盖）----
+    layer_ad = []
+    ad_dup = ad_manual = 0
+    for kind, value in dusk_reject:
+        if blocked_by([cov["ad"]], kind, value):
+            ad_dup += 1
+            continue
+        if blocked_by([cov["manual"]], kind, value):
+            ad_manual += 1
+            continue
+        layer_ad.append((kind, value))
+    layer_ad = collapse(layer_ad)
+    print(f"补集规模: 去广告补充 {len(layer_ad)} 条（与已有去广告重复 {ad_dup} / "
+          f"被手动规则拦下 {ad_manual}）")
 
     # ---- 出厂守卫 ----
     for kind, value in layer_a:
@@ -477,11 +616,28 @@ def main():
         print(f"A 层波动: 上一版 {prev} -> 本版 {len(layer_a)}（{drift:.0%}）")
         if drift > MAX_DRIFT:
             fail(f"A 层波动 {drift:.0%} 超过 {MAX_DRIFT:.0%}，疑似上游异常")
+    for kind, value in layer_p:
+        if kind not in ("suffix", "exact") or not DOMAIN_RE.match(value):
+            fail(f"P 层补集出现非法条目: {kind},{value}")
+    for kind, value in layer_p:
+        if blocked_by([cov["direct"], cov["proxy"], cov["ad"], cov["manual"],
+                       cov["local"]], kind, value):
+            fail(f"P 层与已有判定重叠: {kind},{value}")
+    if len(layer_p) > MAX_P:
+        fail(f"P 层数量 {len(layer_p)} 超过上限 {MAX_P}")
+    for kind, value in layer_ad:
+        if kind not in ("suffix", "exact") or not DOMAIN_RE.match(value):
+            fail(f"去广告补充出现非法条目: {kind},{value}")
+    for kind, value in layer_ad:
+        if blocked_by([cov["ad"], cov["manual"]], kind, value):
+            fail(f"去广告补充与已有去广告/手动规则重叠: {kind},{value}")
+    if len(layer_ad) > MAX_AD_SUPP:
+        fail(f"去广告补充数量 {len(layer_ad)} 超过上限 {MAX_AD_SUPP}")
 
     # ---- 写出（全部校验通过后才写）----
-    def render(entries, title, sources):
+    def render(entries, title, kind_label, sources):
         lines = [
-            f"# {title}：直连补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。",
+            f"# {title}：{kind_label}，由 compile_supplement.py 每日编译生成，请勿手动编辑。",
             f"# 来源：{sources}；双边校验后仅含未被已有判定覆盖的域名规则。",
             "# 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。",
             f"# 条数：{len(entries)}",
@@ -492,9 +648,19 @@ def main():
 
     os.makedirs(args.rules_dir, exist_ok=True)
     with open(out_a, "w", encoding="utf-8", newline="\n") as f:
-        f.write(render(layer_a, "SupplementA（常用直连补集）",
-                       "v2fly/domain-list-community data/cn + ACL4SSR 精选表"))
+        f.write(render(layer_a, "SupplementA（常用直连补集）", "直连补集",
+                       "v2fly/domain-list-community data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect"))
     print(f"OK: SupplementA {len(layer_a)} -> {args.rules_dir}")
+    out_p = os.path.join(args.rules_dir, "SupplementP.list")
+    with open(out_p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(render(layer_p, "SupplementP（代理补集）", "代理补集",
+                       "ACL4SSR ProxyGFWlist/ProxyLite/ProxyMedia + GFWList"))
+    print(f"OK: SupplementP {len(layer_p)} -> {args.rules_dir}")
+    out_ad = os.path.join(args.rules_dir, "SupplementAd.list")
+    with open(out_ad, "w", encoding="utf-8", newline="\n") as f:
+        f.write(render(layer_ad, "SupplementAd（去广告补充）", "去广告补充",
+                       "DuskWander87 Reject.list"))
+    print(f"OK: SupplementAd {len(layer_ad)} -> {args.rules_dir}")
 
 
 if __name__ == "__main__":

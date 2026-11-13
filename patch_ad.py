@@ -6,12 +6,12 @@
 
 流水线（顺序固定）:
   1) DNS 补丁（与基础版 patch.py 完全相同，见 patch.py 文档）。
-  2) 八组排序（与基础版相同，另加第 2 组去广告，位于手动规则之后、
+  2) 九组排序（与基础版相同，另加第 2 组去广告，位于手动规则之后、
      上游规则之前）:
        1A 手动直连 / 1B 手动代理（custom-rules.txt，权力最高）
-       2  去广告规则（sr_ad_only 全量内嵌，REJECT）
+       2  去广告规则（sr_ad_only 全量内嵌 + DuskWander87 去广告补充，REJECT）
        3  上游本地规则；4 代理规则表；5 直连规则表；
-       6  A 层补集；7 GEOIP,CN；8 FINAL,PROXY,force-remote-dns
+       6  A 层补集；7 P 层补集；8 GEOIP,CN；9 FINAL,PROXY,force-remote-dns
      注意: 不能用 RULE-SET 引用 sr_ad_only —— 它每行带策略且自带 [Rule]
      段头，引用必错，只能内嵌。
   3) 重叠守卫：去广告规则中"整个匹配范围都被手动规则盖住"的（即永远
@@ -29,6 +29,9 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 MIRRORS_FILE = os.path.join(BASE, "mirrors.txt")
 SUPPLEMENT_A_URL = SELF_BASE + "rules/SupplementA.list"
 SUPPLEMENT_A_FILE = os.path.join(BASE, "rules", "SupplementA.list")
+SUPPLEMENT_P_URL = SELF_BASE + "rules/SupplementP.list"
+SUPPLEMENT_P_FILE = os.path.join(BASE, "rules", "SupplementP.list")
+SUPPLEMENT_AD_FILE = os.path.join(BASE, "rules", "SupplementAd.list")
 
 def load_mirrors():
     """读 mirrors.txt，返回 {上游地址: 自家镜像地址}。成品引用的每张规则表
@@ -54,11 +57,11 @@ CUSTOM_IP_TYPES = {"IP-CIDR", "IP-CIDR6", "IP6-CIDR"}
 
 def load_custom_rules():
     """读取 custom-rules.txt（手动规则），严格校验后返回 (直连规则, 代理规则)。
-    与 patch.py 完全一致：同一目标只能有一条规则；内嵌于 [Rule] 最前面
+    与 patch.py 完全一致：同一目标只能有一条规则（跨策略重复与互相覆盖都算冲突）；内嵌于 [Rule] 最前面
     （1A/1B 两组），优先于一切含广告拦截。"""
     if not os.path.exists(CUSTOM_FILE):
         return [], []
-    direct, proxy, seen = [], [], {}
+    direct, proxy, seen, parsed = [], [], {}, []
     for lineno, raw in enumerate(open(CUSTOM_FILE, encoding="utf-8"), 1):
         s = raw.strip()
         if not s or s.startswith("#"):
@@ -83,8 +86,24 @@ def load_custom_rules():
         if key in seen:
             fail(f"custom-rules.txt 第 {lineno} 行与第 {seen[key]} 行重复或冲突（同一目标只能有一条规则）: {s!r}")
         seen[key] = lineno
+        if typ in CUSTOM_DOMAIN_TYPES:
+            parsed.append((lineno, typ, value.lower(), policy))
         line = f"{typ},{value},{policy}" + (",no-resolve" if typ in CUSTOM_IP_TYPES else "")
         (direct if policy == "DIRECT" else proxy).append(line)
+    # 跨策略后缀重叠断言（与 patch.py 一致）：直连与代理两组的域名目标不得
+    # 互相覆盖；关键字规则静态无法判定重叠，不在此列。
+    def _covers(t1, v1, v2):
+        if t1 == "DOMAIN-SUFFIX":
+            return v2 == v1 or v2.endswith("." + v1)
+        if t1 == "DOMAIN":
+            return v2 == v1
+        return False
+    dom = [(ln, t, v, p) for (ln, t, v, p) in parsed if t in ("DOMAIN", "DOMAIN-SUFFIX")]
+    for ln1, t1, v1, p1 in dom:
+        for ln2, t2, v2, p2 in dom:
+            if p1 != p2 and _covers(t1, v1, v2):
+                fail(f"custom-rules.txt 第 {ln1} 行与第 {ln2} 行跨策略重叠"
+                     f"（{t1},{v1},{p1} 盖住 {t2},{v2},{p2}）")
     return direct, proxy
 
 AD_LINE = re.compile(r"^(DOMAIN-SUFFIX|IP-CIDR),([^,]+),Reject$")
@@ -199,6 +218,24 @@ def drop_shadowed_ad_rules(ad_rules, custom_direct, custom_proxy):
         (dropped if shadowed else kept).append(r)
     return kept, dropped
 
+def load_supplement_ad():
+    """读取 compile_supplement.py 编译的去广告补充表（SupplementAd.list），
+    渲染为 REJECT 内嵌规则。文件缺失即失败（编译器须先运行）；行格式只
+    允许 DOMAIN-SUFFIX / DOMAIN（编译器出厂守卫已保证，此处再验一遍）。
+    表为空是合法的（补充全部被已有判定覆盖时），返回空列表。"""
+    if not os.path.exists(SUPPLEMENT_AD_FILE):
+        fail(f"补集表缺失（compile_supplement.py 须先运行）: {SUPPLEMENT_AD_FILE}")
+    rules = []
+    for raw in open(SUPPLEMENT_AD_FILE, encoding="utf-8"):
+        s = raw.strip()
+        if not s or s.startswith("#"):
+            continue
+        parts = [x.strip() for x in s.split(",")]
+        if len(parts) != 2 or parts[0].upper() not in ("DOMAIN-SUFFIX", "DOMAIN"):
+            fail(f"SupplementAd.list 行格式不对: {s!r}")
+        rules.append(f"{parts[0].upper()},{parts[1]},REJECT")
+    return rules
+
 def count_active_rules(path):
     n = 0
     for raw in open(path, encoding="utf-8"):
@@ -211,17 +248,28 @@ def main(lazy_path, ad_path, out_path, dns_mode):
     ad_rules = load_ad_rules(ad_path)
     custom_direct, custom_proxy = load_custom_rules()
     ad_rules, dropped = drop_shadowed_ad_rules(ad_rules, custom_direct, custom_proxy)
+    n_sr = len(ad_rules)
+    supp_ad = load_supplement_ad()
+    supp_ad, supp_dropped = drop_shadowed_ad_rules(supp_ad, custom_direct, custom_proxy)
+    seen_ad = set(ad_rules)
+    supp_new = [r for r in supp_ad if r not in seen_ad]
+    n_supp_dup = len(supp_ad) - len(supp_new)
+    ad_rules = ad_rules + supp_new
     if dropped:
         print(f"重叠守卫：剔除被手动规则完全盖住的去广告规则 {len(dropped)} 条：")
         for r in dropped[:20]:
             print(f"  dropped: {r}")
         if len(dropped) > 20:
             print(f"  ... 及另外 {len(dropped) - 20} 条")
+    if supp_dropped or n_supp_dup:
+        print(f"去广告补充守卫：剔除被手动规则盖住 {len(supp_dropped)} 条、"
+              f"与 sr_ad_only 重复 {n_supp_dup} 条")
     mirrors = load_mirrors()
-    for p in (SUPPLEMENT_A_FILE,):
+    for p in (SUPPLEMENT_A_FILE, SUPPLEMENT_P_FILE, SUPPLEMENT_AD_FILE):
         if not os.path.exists(p):
             fail(f"补集表缺失（compile_supplement.py 须先运行）: {p}")
     n_a = count_active_rules(SUPPLEMENT_A_FILE)
+    n_p = count_active_rules(SUPPLEMENT_P_FILE)
     mirror_hits = {}
     local_rules = []
     lines = open(lazy_path, encoding="utf-8").read().splitlines()
@@ -336,7 +384,7 @@ def main(lazy_path, ad_path, out_path, dns_mode):
     if missing:
         fail(f"锚点缺失，上游格式可能已变化，未打上的补丁: {sorted(missing)}")
 
-    # ---- 八组组装（自下而上拼接，索引不漂移；与 patch.py 同构）----
+    # ---- 九组组装（自下而上拼接，索引不漂移；与 patch.py 同构）----
     def find_idx(pred, what):
         for i, l in enumerate(out):
             if pred(l.strip()):
@@ -347,10 +395,13 @@ def main(lazy_path, ad_path, out_path, dns_mode):
     geoip_idx = find_idx(lambda t: t in ("GEOIP,CN,DIRECT", "GEOIP,CN,DIRECT,no-resolve"), "GEOIP 行")
 
     a_line = f"RULE-SET,{SUPPLEMENT_A_URL},DIRECT"
+    p_line = f"RULE-SET,{SUPPLEMENT_P_URL},PROXY"
     out[geoip_idx:geoip_idx] = [
         f"# ===== 第 6 组：A 层补集（SupplementA.list，{n_a} 条常用直连，双边校验后仅含未被已有判定覆盖者）=====",
         a_line,
-        "# ===== 第 7/8 组：IP 推断与兜底 =====",
+        f"# ===== 第 7 组：P 层补集（SupplementP.list，{n_p} 条代理补集，双边校验后仅含未被已有判定覆盖者）=====",
+        p_line,
+        "# ===== 第 8/9 组：IP 推断与兜底 =====",
     ]
     out[first_rs:first_rs] = [
         "# ===== 第 4/5 组：上游规则表（原版顺序：代理判定在前、直连判定在后，Global/China 兜底表居尾）=====",
@@ -361,7 +412,7 @@ def main(lazy_path, ad_path, out_path, dns_mode):
         + custom_direct
         + ["# ===== 第 1B 组：手动代理（custom-rules.txt 的 PROXY 规则，权力最高）====="]
         + custom_proxy
-        + [f"# ===== 第 2 组：去广告规则（内嵌自 sr_ad_only.conf，共 {len(ad_rules)} 条，每日自动同步；重叠守卫已剔除 {len(dropped)} 条）====="]
+        + [f"# ===== 第 2 组：去广告规则（内嵌自 sr_ad_only.conf {n_sr} 条 + 去广告补充 {len(supp_new)} 条，共 {len(ad_rules)} 条，每日自动同步；重叠守卫已剔除 {len(dropped) + len(supp_dropped)} 条）====="]
         + ad_rules
         + ["# ===== 去广告规则结束，以下为分流规则 ====="]
         + ["# ===== 第 3 组：上游本地规则（原文件散在规则表之间，全部 PROXY，集中于此不改变判定）====="]
@@ -438,11 +489,13 @@ def main(lazy_path, ad_path, out_path, dns_mode):
     if first_rs_i != prefix + len(local_rules):
         fail("第 3 组与第一张规则表之间出现多余规则")
     geoip_i = next(i for i, l in enumerate(rule_active) if l.startswith("GEOIP,"))
-    if rule_active[geoip_i - 1] != a_line:
-        fail("A 层补集行不在 GEOIP 之前")
+    if rule_active[geoip_i - 1] != p_line:
+        fail("P 层补集行不在 GEOIP 之前")
+    if rule_active[geoip_i - 2] != a_line:
+        fail("A 层补集行不在 P 层之前")
     rs_urls = [rule_active[i].split(",", 2)[1] for i in rs_idx]
-    if sorted(rs_urls) != sorted(list(mirrors.values()) + [SUPPLEMENT_A_URL]):
-        fail("成品引用的规则表与清单不一致（34 张镜像 + 1 张补集，存在未镜像的表，或缺失/重复）")
+    if sorted(rs_urls) != sorted(list(mirrors.values()) + [SUPPLEMENT_A_URL, SUPPLEMENT_P_URL]):
+        fail("成品引用的规则表与清单不一致（34 张镜像 + 2 张补集，存在未镜像的表，或缺失/重复）")
     if len(rs_urls) != len(set(rs_urls)):
         fail("规则表引用有重复")
 
@@ -464,13 +517,13 @@ def main(lazy_path, ad_path, out_path, dns_mode):
         "# 上游: https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf\n"
         "#       https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_ad_only.conf\n"
         "#       （懒人配置同步自 LOWERTOP/Shadowrocket，版权与署名归上游所有）\n"
-        f"# 内容: lazy 分流规则 + sr_ad_only 去广告规则 {len(ad_rules)} 条内嵌于第 2 组（REJECT；重叠守卫剔除 {len(dropped)} 条）；\n"
+        f"# 内容: lazy 分流规则 + sr_ad_only 去广告规则 {n_sr} 条 + 去广告补充 {len(supp_new)} 条，共 {len(ad_rules)} 条内嵌于第 2 组（REJECT；重叠守卫剔除 {len(dropped) + len(supp_dropped)} 条）；\n"
         "#       DNS 仅改机制、规则仅改排序（均以注释标出），名单内容与上游逐字一致。\n"
-        "# 排序（先命中先赢，共八组，组内上游相对顺序不动）:\n"
+        "# 排序（先命中先赢，共九组，组内上游相对顺序不动）:\n"
         "#   1A 手动直连 / 1B 手动代理（custom-rules.txt，权力最高）；2 去广告；3 上游本地规则；\n"
         "#   4 代理规则表；5 直连规则表；\n"
-        f"#   6 A 层补集（{n_a} 条常用直连）；7 GEOIP,CN；8 FINAL,PROXY,force-remote-dns。\n"
-        f"# 补集由 compile_supplement.py 每日编译（v2fly data/cn + ACL4SSR 精选表，双边校验：有代理证据的一律不补）。\n"
+        f"#   6 A 层补集（{n_a} 条常用直连）；7 P 层补集（{n_p} 条代理）；8 GEOIP,CN；9 FINAL,PROXY,force-remote-dns。\n"
+        f"# 补集由 compile_supplement.py 每日编译（A 层：v2fly data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect，有代理证据的一律不补；P 层：ACL4SSR 代理表 + GFWList，已被已有判定覆盖的一律不补；去广告补充：DuskWander87 Reject.list）。\n"
         + dns_note +
         "#         全部 34 张规则表改引自托管镜像 rules/*.list（与上游逐行一致、仅补 no-resolve；QX 格式四张表的 IP 规则原本无此标记、会触发本地解析）。\n"
         "#         注: [Host] 中 Apple/iCloud 的 server:system 为上游有意的兼容设计，原样保留。\n"
@@ -479,7 +532,7 @@ def main(lazy_path, ad_path, out_path, dns_mode):
     )
     with open(out_path, "w", encoding="utf-8", newline="\n") as f:
         f.write(header + text)
-    print(f"OK: ad_rules={len(ad_rules)} dropped={len(dropped)} (dns-mode={dns_mode}) -> {out_path}")
+    print(f"OK: ad_rules={len(ad_rules)} (sr_ad_only {n_sr} + supplement {len(supp_new)}) dropped={len(dropped) + len(supp_dropped)} (dns-mode={dns_mode}) -> {out_path}")
 
 if __name__ == "__main__":
     args = sys.argv[1:]
