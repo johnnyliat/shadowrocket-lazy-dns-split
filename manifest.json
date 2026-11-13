@@ -179,20 +179,20 @@
   },
   "scripts": {
     "build_common.py": {
-      "lines": 511,
-      "sha256": "57e0c1d8f1bde0c51cb440d6b84d55745d9b1586d0283bac52366b4d82f264c6"
+      "lines": 513,
+      "sha256": "59beecfd8a236e73cb350f32db90a6530249fde0f579a0993e21349a3e2800f8"
     },
     "build_manifest.py": {
-      "lines": 75,
-      "sha256": "b4ac3b77e2948ad44b6c1ee6a5f1c3da7ad89b43d173c377c30c95080b2fef82"
+      "lines": 88,
+      "sha256": "9f9a65486b4c1d24ceeb1a5959f7efbb182294ed0712da6871d6a5157ff1365a"
     },
     "check_no_resolve.py": {
       "lines": 133,
       "sha256": "b3c23600ed1c301a16aa63f0a3600f458ed959d238d73d69754866a904ce8299"
     },
     "compile_supplement.py": {
-      "lines": 795,
-      "sha256": "9668e8b6d4792f76e3362a7237181a653f8e0f642b48b71917bd71ab30b1eb23"
+      "lines": 854,
+      "sha256": "ca718bffda5580130d1669600cb899d9c9e37f71b12a848bd9a6d1988940f533"
     },
     "patch.py": {
       "lines": 186,
@@ -207,9 +207,41 @@
       "sha256": "93bb7cf00cb2eb099742e5a7f10f578a62120a790be773e6fe516820a41e661b"
     },
     "verify_routing.py": {
-      "lines": 554,
-      "sha256": "5d09e81f086f37d39e0586608486aad189614b224e74fa43315bfe56804f1aab"
+      "lines": 599,
+      "sha256": "776ce81134f5a5382cc6002bbd76357b285359a27055ec9173ccbbc9cc27fba9"
     }
   },
-  "version": 1
+  "tests": {
+    "test_build_common.py": {
+      "lines": 140,
+      "sha256": "576af99922903550e502f118a83158596952edd49466ee0cc0aabd24c1d068b7"
+    },
+    "test_gfwlist.py": {
+      "lines": 54,
+      "sha256": "4883253875eccb126b575575fb2f0de5551ce2601928869c214fe71f26cdc863"
+    },
+    "test_patch_lists.py": {
+      "lines": 139,
+      "sha256": "55dc349a973487cd31345d5ad403402d533dc46f1ba241ca74a8ec9beab7e49c"
+    },
+    "test_supplement_guards.py": {
+      "lines": 180,
+      "sha256": "5703adf713c95a34c76ff5ea272c15a58241d5f97705d5a79ec5afd0790fca6f"
+    },
+    "test_verifier_matcher.py": {
+      "lines": 207,
+      "sha256": "8b3d1a9240829d0a50404cb14935246c16eeff41594dfd493abd232e237e15df"
+    }
+  },
+  "version": 1,
+  "workflows": {
+    "health.yml": {
+      "lines": 77,
+      "sha256": "fb59d193706faf3600315841cfc870dd35c77b829dbbf8dc41fb53a4cc9c9379"
+    },
+    "sync.yml": {
+      "lines": 68,
+      "sha256": "15b0dff18643723a46c3c49e0ee37955a017c5b2872d47225a2c46c338bfda31"
+    }
+  }
 }
