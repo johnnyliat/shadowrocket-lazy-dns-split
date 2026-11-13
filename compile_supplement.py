@@ -29,9 +29,13 @@
   反对证据 = 它已被直连表覆盖（重复）、被去广告表覆盖（广告域）、
   被手动规则或上游本地规则覆盖（已有明确判定），或被任何代理表覆盖
   （有国外证据的，一律判回代理）。代理证据一票否决，没有例外：
-  同一个服务的端点必须同走代理、同走直连，不拆分——某服务的部分端点
-  直连、其余走代理，会让该服务同时看到真实 IP 与代理出口 IP，起不到
-  隔离作用。故本脚本不设任何凌驾于代理表之上的直连层。
+  已有代理判定不被补集翻转——某服务的部分端点直连、其余走代理，会让
+  该服务同时看到真实 IP 与代理出口 IP，起不到隔离作用。故本脚本不设
+  任何凌驾于代理表之上的直连层。算法保证的边界如实记录：覆盖判定只认
+  祖先/相等规则，代理子域存在时父域直连候选仍会入选——这不导致误分流
+  （代理表排在补集之前，子域规则先命中），但"同一服务不拆分"的说法
+  强于算法保证，故本文件不再如此宣称；每次构建打印父子部分重叠报告
+  （仅报告、不拦截），供复核。
   另：带 @ads 标记的条目（社区标注的广告/追踪域）不要。
   P 层镜像同一原则、方向相反：一条候选判代理，当且仅当代理源主张它，
   并且它未被任何已有判定覆盖（直连/代理/去广告/手动/本地任一覆盖都
@@ -43,6 +47,12 @@
   去广告补充：候选被已有去广告覆盖（重复）或被手动规则覆盖（明确意
   图优先）的一律不补；直连/代理覆盖不拦（去广告组排在分流组之前，
   是既定顺序）。
+  单标签条目（无点号的顶级域级后缀）：只接受已审核清单内的品牌/中文
+  顶级域（ALLOWED_SINGLE_LABELS）；通用顶级域候选（com/net/org 等）直
+  接构建失败；清单外的新单标签丢弃并记入日志（安全方向：落回 GEOIP
+  预解析，判定正确性不受影响），待人工审核后加入清单。P 层丢弃全部
+  单标签条目（见 P 层小节）。
+  差异日志：每次构建打印三张补集相对上一版的增减条目，供构建日志追溯。
 
 丢弃（计数并报告，不静默）:
   - regexp: 条目：Shadowrocket 规则表表达不了正则；
@@ -73,6 +83,8 @@ import sys
 import time
 import urllib.request
 
+from build_common import atomic_write_text, validate_domain_value
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 
 ACL4SSR_BASE = "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/"
@@ -98,7 +110,68 @@ MAX_DRIFT = 0.40
 # 去广告补充约 15 条，上限留足余量。
 MAX_P, MAX_AD_SUPP = 500, 200
 
-DOMAIN_RE = re.compile(r"^[a-z0-9._-]+$")
+# 单标签条目（无点号的顶级域级后缀）策略：一条单标签后缀规则会覆盖该
+# 顶级域下的全部域名，威力极大，故只接受已审核清单。清单为 2026-11-13
+# 实测入选的 44 条（品牌顶级域与中文顶级域的 punycode 形式），均来自
+# v2fly data/cn；新增单标签须经人工审核加入清单，未入清单的一律丢弃
+# 并记入日志（安全方向：落回 GEOIP 预解析）。通用顶级域绝不接受为直连
+# 单标签，出现即构建失败（源数据异常）。
+ALLOWED_SINGLE_LABELS = frozenset([
+    "alibaba", "anquan", "citic", "icbc", "shouji", "sina", "sohu",
+    "tmall", "unicom", "xihuan", "yun",
+    "xn--1qqw23a", "xn--3bst00m", "xn--3ds443g", "xn--55qw42g",
+    "xn--55qx5d", "xn--5tzm5g", "xn--6frz82g", "xn--6qq986b3xl",
+    "xn--8y0a063a", "xn--9et52u", "xn--9krt00a", "xn--czr694b",
+    "xn--czrs0t", "xn--czru2d", "xn--fiq228c5hs", "xn--fiq64b",
+    "xn--fiqs8s", "xn--fiqz9s", "xn--fjq720a", "xn--g2xx48c",
+    "xn--hxt814e", "xn--imr513n", "xn--io0a7i", "xn--kput3i",
+    "xn--nyqy26a", "xn--otu796d", "xn--rhqv96g", "xn--ses554g",
+    "xn--unup4y", "xn--vhquv", "xn--vuq861b", "xn--xhq521b",
+    "xn--zfr164b",
+])
+DANGER_SINGLE_LABELS = frozenset([
+    "com", "net", "org", "edu", "gov", "mil", "int", "arpa",
+    "biz", "info", "name", "pro", "aero", "coop", "museum", "mobi",
+    "travel", "jobs", "tel", "cat", "post", "xxx",
+])
+
+
+def classify_single_label(value):
+    """单标签候选裁决：返回 "keep"（已审核清单内）/ "drop"（清单外新
+    单标签，丢弃并记日志）/ "fail"（通用顶级域，构建失败）。"""
+    if value in DANGER_SINGLE_LABELS:
+        return "fail"
+    if value in ALLOWED_SINGLE_LABELS:
+        return "keep"
+    return "drop"
+
+
+def descendant_report(entries, opposing_suffixes, opposing_exacts):
+    """父子部分重叠报告：补集父域下仍有对方覆盖的子域。返回
+    {父域: [子域...]}（仅报告用，不拦截——顺序保护下子域规则先命中）。"""
+    cand = {v for k, v in entries if k == "suffix"}
+    hits = {}
+    for v in sorted(opposing_suffixes | opposing_exacts):
+        parts = v.split(".")
+        for i in range(1, len(parts)):
+            anc = ".".join(parts[i:])
+            if anc in cand:
+                hits.setdefault(anc, []).append(v)
+    return hits
+
+
+def read_previous_entries(path):
+    """读上一版已提交的补集表，返回非注释行集合（文件不存在 -> None）。"""
+    if not os.path.exists(path):
+        return None
+    out = set()
+    for raw in open(path, encoding="utf-8"):
+        s = raw.strip()
+        if s and not s.startswith("#"):
+            out.add(s)
+    return out
+
+
 RULESET_RE = re.compile(r"^RULE-SET,(https://[^,]+),([^,]+)")
 
 
@@ -146,7 +219,7 @@ class Coverage:
     def add_bare_domain(self, value):
         """无格式的裸域名行（个别 .txt 表）：按后缀计。"""
         v = value.strip().lower()
-        if v and DOMAIN_RE.match(v):
+        if v and validate_domain_value(v):
             self.suffixes.add(v)
 
     def merge(self, other):
@@ -179,7 +252,7 @@ def parse_rule_file(text, coverage):
         before = (len(coverage.suffixes), len(coverage.exacts), len(coverage.keywords))
         coverage.add_line(s)
         after = (len(coverage.suffixes), len(coverage.exacts), len(coverage.keywords))
-        if before == after and "," not in s and DOMAIN_RE.match(s.lower()):
+        if before == after and "," not in s and validate_domain_value(s.lower()):
             coverage.add_bare_domain(s)
 
 
@@ -292,7 +365,7 @@ def parse_v2fly_line(line, fname):
         fail(f"v2fly {fname} 出现未知前缀: {line!r}")
     else:
         value, kind = first.lower(), "suffix"
-    if not DOMAIN_RE.match(value):
+    if not validate_domain_value(value):
         fail(f"v2fly {fname} 域名不合法: {line!r}")
     if kind == "exact" and "." not in value:
         fail(f"v2fly {fname} 精确域名缺少点号: {line!r}")
@@ -364,7 +437,7 @@ def load_rule_list(url, label):
         parts = [x.strip() for x in s.split(",")]
         typ = parts[0].upper()
         if typ in ("DOMAIN-SUFFIX", "DOMAIN"):
-            if len(parts) < 2 or not DOMAIN_RE.match(parts[1].lower()):
+            if len(parts) < 2 or not validate_domain_value(parts[1].lower()):
                 fail(f"{label} 行无法解析: {s!r}")
             entries.append(("suffix" if typ == "DOMAIN-SUFFIX" else "exact",
                             parts[1].lower()))
@@ -410,7 +483,7 @@ def load_gfwlist():
         s = s.split("/")[0].split("^")[0].split("$")[0].split("*")[0].strip(".").lower()
         s = s.split(":")[0]
         if (not s or "." not in s or " " in s or "%" in s or "_" in s
-                or not DOMAIN_RE.match(s)):
+                or not validate_domain_value(s)):
             dropped += 1
             continue
         try:
@@ -519,6 +592,22 @@ def main():
     def blocked_by(covsets, kind, value):
         return any(c.covers_candidate(kind, value) for c in covsets)
 
+    dropped_singles_a, dropped_singles_ad = [], []
+
+    def single_label_ok(kind, value, dropped_list):
+        """单标签策略：无点号候选只接受已审核清单；通用顶级域构建失败；
+        清单外新单标签丢弃并记录（安全方向：落回 GEOIP 预解析）。多标签
+        候选不受影响。返回 True=可入选。"""
+        if "." in value:
+            return True
+        verdict = classify_single_label(value)
+        if verdict == "fail":
+            fail(f"通用顶级域单标签候选（源数据异常，拒绝入选）: {value}")
+        if verdict == "drop":
+            dropped_list.append(value)
+            return False
+        return True
+
     # 补集：cn 树 + ACL4SSR，减去全部已有判定（含代理覆盖——代理证据一票否决）
     a_raw = usable(cn_tree)
     a_blocked_proxy_only = a_blocked_other_only = a_blocked_both = 0
@@ -533,7 +622,7 @@ def main():
             a_blocked_proxy_only += 1
         elif by_other:
             a_blocked_other_only += 1
-        else:
+        elif single_label_ok(kind, value, dropped_singles_a):
             layer_a.append((kind, value))
     acl_proxy_dropped, acl_blocked = 0, 0
     for kind, value in acl:
@@ -542,10 +631,11 @@ def main():
             acl_blocked += 1
             continue
         if blocked_by([cov["proxy"]], kind, value):
-            # 有代理证据：判回代理，不补（服务不拆分，无例外层）
+            # 有代理证据：判回代理，不补（已有代理判定不被翻转，无例外层）
             acl_proxy_dropped += 1
             continue
-        layer_a.append((kind, value))
+        if single_label_ok(kind, value, dropped_singles_a):
+            layer_a.append((kind, value))
     dusk_proxy_dropped, dusk_blocked = 0, 0
     for kind, value in dusk_direct:
         if blocked_by([cov["direct"], cov["ad"], cov["manual"], cov["local"]],
@@ -555,7 +645,8 @@ def main():
         if blocked_by([cov["proxy"]], kind, value):
             dusk_proxy_dropped += 1
             continue
-        layer_a.append((kind, value))
+        if single_label_ok(kind, value, dropped_singles_a):
+            layer_a.append((kind, value))
     print(f"丢弃: 正则 {dropped_re} / 关键字 {dropped_kw} / @ads {dropped_ads}；"
           f"cn 树拦下：仅代理证据 {a_blocked_proxy_only}、仅其他已有判定 "
           f"{a_blocked_other_only}、两者都有 {a_blocked_both}；ACL4SSR 被已有判定拦下 "
@@ -571,9 +662,11 @@ def main():
     # 归属照样走代理），不收 TLD 只损失一点速度，不损失正确性。
     layer_p = []
     p_blocked = p_tld = 0
+    p_tld_values = []
     for kind, value in proxy_entries:
         if "." not in value:
             p_tld += 1
+            p_tld_values.append(value)
             continue
         if blocked_by([cov["direct"], cov["proxy"], cov["ad"], cov["manual"],
                        cov["local"]], kind, value):
@@ -582,7 +675,7 @@ def main():
         layer_p.append((kind, value))
     layer_p = collapse(layer_p)
     print(f"补集规模: P 层 {len(layer_p)} 条（被已有判定拦下 {p_blocked} / "
-          f"裸 TLD 丢弃 {p_tld}）")
+          f"裸 TLD 丢弃 {p_tld}：{sorted(set(p_tld_values))}）")
 
     # ---- 去广告补充（Dusk Reject.list，减去已有去广告与手动覆盖）----
     layer_ad = []
@@ -594,14 +687,34 @@ def main():
         if blocked_by([cov["manual"]], kind, value):
             ad_manual += 1
             continue
-        layer_ad.append((kind, value))
+        if single_label_ok(kind, value, dropped_singles_ad):
+            layer_ad.append((kind, value))
     layer_ad = collapse(layer_ad)
     print(f"补集规模: 去广告补充 {len(layer_ad)} 条（与已有去广告重复 {ad_dup} / "
           f"被手动规则拦下 {ad_manual}）")
 
+    # ---- 单标签与父子重叠报告（仅报告，不拦截）----
+    a_singles = sorted(v for k, v in layer_a if "." not in v)
+    print(f"单标签条目: A 层保留 {len(a_singles)} 条（已审核清单内）；"
+          f"丢弃 {len(dropped_singles_a)} 条：{sorted(set(dropped_singles_a))}；"
+          f"去广告补充丢弃 {len(dropped_singles_ad)} 条：{sorted(set(dropped_singles_ad))}")
+
+    def print_conflict_report(title, hits):
+        total = sum(len(v) for v in hits.values())
+        print(f"部分重叠报告（{title}）：{len(hits)} 个父域下有 {total} 条对方子域"
+              f"（顺序保护、子域优先，仅报告）")
+        for anc in sorted(hits)[:20]:
+            subs = sorted(hits[anc])
+            print(f"  {anc}: {', '.join(subs[:8])}" + ("，…" if len(subs) > 8 else ""))
+
+    print_conflict_report("A 层父域 vs 代理子域",
+                          descendant_report(layer_a, cov["proxy"].suffixes, cov["proxy"].exacts))
+    print_conflict_report("P 层父域 vs 直连子域",
+                          descendant_report(layer_p, cov["direct"].suffixes, cov["direct"].exacts))
+
     # ---- 出厂守卫 ----
     for kind, value in layer_a:
-        if kind not in ("suffix", "exact") or not DOMAIN_RE.match(value):
+        if kind not in ("suffix", "exact") or not validate_domain_value(value):
             fail(f"补集出现非法条目: {kind},{value}")
     for kind, value in layer_a:
         if blocked_by([cov["direct"], cov["proxy"], cov["ad"], cov["manual"],
@@ -617,7 +730,7 @@ def main():
         if drift > MAX_DRIFT:
             fail(f"A 层波动 {drift:.0%} 超过 {MAX_DRIFT:.0%}，疑似上游异常")
     for kind, value in layer_p:
-        if kind not in ("suffix", "exact") or not DOMAIN_RE.match(value):
+        if kind not in ("suffix", "exact") or not validate_domain_value(value):
             fail(f"P 层补集出现非法条目: {kind},{value}")
     for kind, value in layer_p:
         if blocked_by([cov["direct"], cov["proxy"], cov["ad"], cov["manual"],
@@ -626,7 +739,7 @@ def main():
     if len(layer_p) > MAX_P:
         fail(f"P 层数量 {len(layer_p)} 超过上限 {MAX_P}")
     for kind, value in layer_ad:
-        if kind not in ("suffix", "exact") or not DOMAIN_RE.match(value):
+        if kind not in ("suffix", "exact") or not validate_domain_value(value):
             fail(f"去广告补充出现非法条目: {kind},{value}")
     for kind, value in layer_ad:
         if blocked_by([cov["ad"], cov["manual"]], kind, value):
@@ -634,7 +747,7 @@ def main():
     if len(layer_ad) > MAX_AD_SUPP:
         fail(f"去广告补充数量 {len(layer_ad)} 超过上限 {MAX_AD_SUPP}")
 
-    # ---- 写出（全部校验通过后才写）----
+    # ---- 写出（全部校验通过后才写，原子替换）----
     def render(entries, title, kind_label, sources):
         lines = [
             f"# {title}：{kind_label}，由 compile_supplement.py 每日编译生成，请勿手动编辑。",
@@ -646,20 +759,35 @@ def main():
             lines.append(f"{'DOMAIN-SUFFIX' if kind == 'suffix' else 'DOMAIN'},{value}")
         return "\n".join(lines) + "\n"
 
+    def print_layer_diff(title, path, entries):
+        prev = read_previous_entries(path)
+        new = {f"{'DOMAIN-SUFFIX' if k == 'suffix' else 'DOMAIN'},{v}"
+               for k, v in entries}
+        if prev is None:
+            print(f"{title} 差异: 上一版不存在（首轮），跳过")
+            return
+        added, removed = sorted(new - prev), sorted(prev - new)
+        print(f"{title} 差异 vs 上一版: +{len(added)}/-{len(removed)}")
+        for tag, sample in (("+", added), ("-", removed)):
+            for line in sample[:100]:
+                print(f"  {tag} {line}")
+            if len(sample) > 100:
+                print(f"  {tag} ... 及另外 {len(sample) - 100} 条")
+
     os.makedirs(args.rules_dir, exist_ok=True)
-    with open(out_a, "w", encoding="utf-8", newline="\n") as f:
-        f.write(render(layer_a, "SupplementA（常用直连补集）", "直连补集",
-                       "v2fly/domain-list-community data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect"))
+    print_layer_diff("SupplementA", out_a, layer_a)
+    atomic_write_text(out_a, render(layer_a, "SupplementA（常用直连补集）", "直连补集",
+                                    "v2fly/domain-list-community data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect"))
     print(f"OK: SupplementA {len(layer_a)} -> {args.rules_dir}")
     out_p = os.path.join(args.rules_dir, "SupplementP.list")
-    with open(out_p, "w", encoding="utf-8", newline="\n") as f:
-        f.write(render(layer_p, "SupplementP（代理补集）", "代理补集",
-                       "ACL4SSR ProxyGFWlist/ProxyLite/ProxyMedia + GFWList"))
+    print_layer_diff("SupplementP", out_p, layer_p)
+    atomic_write_text(out_p, render(layer_p, "SupplementP（代理补集）", "代理补集",
+                                    "ACL4SSR ProxyGFWlist/ProxyLite/ProxyMedia + GFWList"))
     print(f"OK: SupplementP {len(layer_p)} -> {args.rules_dir}")
     out_ad = os.path.join(args.rules_dir, "SupplementAd.list")
-    with open(out_ad, "w", encoding="utf-8", newline="\n") as f:
-        f.write(render(layer_ad, "SupplementAd（去广告补充）", "去广告补充",
-                       "DuskWander87 Reject.list"))
+    print_layer_diff("SupplementAd", out_ad, layer_ad)
+    atomic_write_text(out_ad, render(layer_ad, "SupplementAd（去广告补充）", "去广告补充",
+                                     "DuskWander87 Reject.list"))
     print(f"OK: SupplementAd {len(layer_ad)} -> {args.rules_dir}")
 
 

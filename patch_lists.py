@@ -21,8 +21,11 @@
   - 每张表下载成功且不像 HTML 错误页，行数不低于 3；
   - 输出与输入逐行对应：除给缺失的 IP 规则补 ,no-resolve 后缀与首行镜像
     说明外，不得有任何其他差异；
-  - 补后全表行首 IP 类规则 100% 带 no-resolve；
+  - 补后全表行首 IP 类规则 100% 带精确的独立 no-resolve 修饰符（语法判定，
+    不再用子串包含判断；带行内注释或语法畸形的无守卫 IP 行无法安全补丁，
+    直接失败等人工确认）；
   - QX 四张表补上的条数不低于已知下限（上游异常删减即报警）。
+  - 每张表打印与上一版的差异计数（+N/-M），供构建日志追溯上游变化。
 """
 import os
 import re
@@ -30,13 +33,15 @@ import sys
 import time
 import urllib.request
 
+import build_common
+from build_common import atomic_write_text, fail, ip_rule_guard_status
+
+build_common.set_fail_prefix("PATCH-LISTS FAILED")
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 IP_LINE = re.compile(r"^(IP-CIDR|IP-CIDR6|IP6-CIDR|IP-ASN|GEOIP),", re.I)
 MIN_PATCHED = {"Apple": 13, "China": 21, "Global": 119, "WeChat": 1}
 
-def fail(msg):
-    print(f"PATCH-LISTS FAILED: {msg}", file=sys.stderr)
-    sys.exit(1)
 
 def fetch(url):
     last = None
@@ -50,6 +55,7 @@ def fetch(url):
             if attempt < 2:
                 time.sleep(2 ** (attempt + 1))
     fail(f"下载失败 {url}: {last}")
+
 
 def load_manifest():
     path = os.path.join(BASE, "mirrors.txt")
@@ -72,6 +78,7 @@ def load_manifest():
         fail("mirrors.txt 本地路径有重复")
     return entries
 
+
 def build(url, local):
     body = fetch(url)
     if body.lstrip().startswith("<"):
@@ -82,9 +89,18 @@ def build(url, local):
     out, patched = [], 0
     for raw in lines:
         s = raw.strip()
-        if IP_LINE.match(s) and "no-resolve" not in s.lower():
-            out.append(raw.rstrip() + ",no-resolve")
-            patched += 1
+        if IP_LINE.match(s.lstrip("\ufeff")):
+            try:
+                status = ip_rule_guard_status(s)
+            except ValueError as e:
+                fail(f"{url} 的 IP 规则语法异常: {e}")
+            if status is False:
+                if "#" in s:
+                    fail(f"{url} 的 IP 规则无 no-resolve 且带行内注释，无法安全补丁: {s!r}")
+                out.append(raw.rstrip() + ",no-resolve")
+                patched += 1
+            else:
+                out.append(raw)
         else:
             out.append(raw)
     name = os.path.basename(local)
@@ -96,22 +112,42 @@ def build(url, local):
     for a, b in zip(lines, out):
         if b != a and b != a.rstrip() + ",no-resolve":
             fail(f"{name}: 出现非预期改动: {a!r} -> {b!r}")
-    bad = [l for l in out if IP_LINE.match(l.strip()) and "no-resolve" not in l.lower()]
-    if bad:
-        fail(f"{name}: 仍有 {len(bad)} 条 IP 规则无 no-resolve")
+    for l in out:
+        s = l.strip()
+        if not s or s.startswith("#") or s.startswith("//"):
+            continue
+        try:
+            status = ip_rule_guard_status(s)
+        except ValueError as e:
+            fail(f"{name}: 补后仍有语法异常的 IP 规则: {e}")
+        if status is False:
+            fail(f"{name}: 仍有 IP 规则无 no-resolve: {s!r}")
     path_desc = url[len("https://raw.githubusercontent.com/"):] if url.startswith("https://raw.githubusercontent.com/") else url
     header = (f"# Mirror of {path_desc}, content identical to upstream except ',no-resolve' "
               f"appended to IP rule lines lacking it (prevents local DNS resolution in "
               f"Shadowrocket). Auto-synced daily. Source: {url}")
+    content = header + "\n" + "\n".join(out) + "\n"
     out_path = os.path.join(BASE, local)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(header + "\n" + "\n".join(out) + "\n")
-    print(f"OK: {name} {len(lines)} lines, patched {patched} -> {local}")
+    diff_note = ""
+    if os.path.exists(out_path):
+        prev = set(open(out_path, encoding="utf-8").read().splitlines())
+        new = set(content.splitlines())
+        added, removed = sorted(new - prev), sorted(prev - new)
+        diff_note = f", diff +{len(added)}/-{len(removed)}"
+        for tag, sample in (("+", added), ("-", removed)):
+            for line in sample[:5]:
+                diff_note += f"\n    {tag} {line[:120]}"
+            if len(sample) > 5:
+                diff_note += f"\n    {tag} ... 及另外 {len(sample) - 5} 条"
+    atomic_write_text(out_path, content)
+    print(f"OK: {name} {len(lines)} lines, patched {patched} -> {local}{diff_note}")
+
 
 def main():
     for url, local in load_manifest():
         build(url, local)
+
 
 if __name__ == "__main__":
     main()

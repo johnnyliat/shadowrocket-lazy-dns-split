@@ -15,9 +15,13 @@ DoH，国内 DNS 看不到查询，裸 GEOIP 是新架构有意的设计，不�
 任何一处新出现无 no-resolve 的 IP 规则，当日构建即失败报警，
 问题成品不会提交、不出厂。
 
-扫描口径（2026-11-09 按外部审计建议收紧）:
-  - 整行扫描：IP 类规则字样出现在一行中的任何位置（如 AND/OR 组合条件里
-    嵌套的 IP 条件）都算数，整行没有 no-resolve 即违规，不再只看行首。
+扫描口径（2026-11-13 按外部审计建议收紧为语法判定）:
+  - 精确参数判定：按逗号切分字段、要求独立的 no-resolve 修饰符，行内
+    # 注释先截断；#no-resolve、no-resolve-extra 这类非独立写法不再被
+    子串包含判断误放行（旧口径的绕过条件已复现并修复）。IP 段/ASN/国家
+    代码亦做合法性校验，畸形行即违规。
+  - 逻辑组合行（AND/OR/NOT）：每个 IP 条件必须在自己同一括号组内带
+    no-resolve；USER-AGENT / URL-REGEX 等行的内容不是规则，不误判。
   - 自家镜像（本仓库 Raw 地址）直接读工作区里本次构建刚生成、尚未提交的
     本地文件，查的就是即将出厂的那一份，不再下载线上上一版。
   - 外部表联网下载，失败自动重试 3 次，避免网络抖动误报构建失败。
@@ -31,13 +35,14 @@ import sys
 import time
 import urllib.request
 
+import build_common
+from build_common import fail, ip_rule_guard_status
+
+build_common.set_fail_prefix("CHECK FAILED")
+
 SELF_PREFIX = "https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/"
-IP_TOKEN = re.compile(r"(IP-CIDR6?|IP6-CIDR|IP-ASN|GEOIP)\s*,", re.I)
 RULESET = re.compile(r"^RULE-SET,(https://[^,]+),")
 
-def fail(msg):
-    print(f"CHECK FAILED: {msg}", file=sys.stderr)
-    sys.exit(1)
 
 def fetch(url):
     last = None
@@ -52,6 +57,7 @@ def fetch(url):
                 time.sleep(2 ** (attempt + 1))
     raise last
 
+
 def load(url):
     if url.startswith(SELF_PREFIX):
         path = url[len(SELF_PREFIX):]
@@ -63,15 +69,22 @@ def load(url):
     except Exception as e:
         fail(f"规则集拉取失败 {url}: {e}")
 
+
 def violations(lines):
     bad = []
     for raw in lines:
         s = raw.strip()
-        if not s or s.startswith("#"):
+        if not s or s.startswith("#") or s.startswith("//"):
             continue
-        if IP_TOKEN.search(s) and "no-resolve" not in s.lower():
+        try:
+            status = ip_rule_guard_status(s)
+        except ValueError as e:
+            bad.append(f"{s}（{e}）")
+            continue
+        if status is False:
             bad.append(s)
     return bad
+
 
 def main(paths):
     urls = set()
@@ -112,6 +125,7 @@ def main(paths):
     if total_bad:
         fail(f"共 {total_bad} 条 IP 规则无 no-resolve，拒绝出厂")
     print(f"OK: {len(urls)} 张表（自家镜像查本地新文件、外部表联网查）+ 本地规则，全部 IP 规则均带 no-resolve")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
