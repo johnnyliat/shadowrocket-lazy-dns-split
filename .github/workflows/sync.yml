@@ -30,6 +30,12 @@ jobs:
       - name: Build self-hosted rule-set mirrors (all lists in mirrors.txt)
         run: python3 patch_lists.py
 
+      - name: Compile direct-rule supplement (v2fly + ACL4SSR, two-sided check)
+        run: |
+          git clone -q --depth 1 https://github.com/v2fly/domain-list-community.git v2fly-data
+          python3 compile_supplement.py --v2fly-dir v2fly-data/data --lazy upstream-lazy.conf --ad upstream-sr_ad_only.conf
+          rm -rf v2fly-data
+
       - name: Apply DNS split patch (pure version)
         run: python3 patch.py upstream-lazy.conf lazy-dns.conf
 
@@ -49,5 +55,5 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "sync: upstream lazy.conf (+ sr_ad_only) + DNS split patch"
+          git commit -m "sync: upstream lazy.conf (+ sr_ad_only) + DNS split patch + supplement"
           git push
