@@ -22,6 +22,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests -v
+
       - name: Download upstream files
         run: |
           curl -fsSL --retry 3 -o upstream-lazy.conf "https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/lazy.conf"
@@ -45,10 +48,16 @@ jobs:
       - name: Verify no-resolve coverage of all rules (leak guard)
         run: python3 check_no_resolve.py lazy-dns.conf lazy-dns-ad.conf
 
+      - name: Verify routing semantics independently
+        run: python3 verify_routing.py lazy-dns.conf lazy-dns-ad.conf
+
+      - name: Write build manifest
+        run: python3 build_manifest.py upstream-lazy.conf upstream-sr_ad_only.conf
+
       - name: Commit if changed
         run: |
           rm -rf upstream-lazy.conf upstream-sr_ad_only.conf
-          git add lazy-dns.conf lazy-dns-ad.conf rules
+          git add lazy-dns.conf lazy-dns-ad.conf rules manifest.json
           if git diff --cached --quiet; then
             echo "No changes from upstream."
             exit 0
