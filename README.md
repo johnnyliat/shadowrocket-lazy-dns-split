@@ -96,6 +96,7 @@ https://raw.githubusercontent.com/johnnyliat/shadowrocket-lazy-dns-split/main/la
 dns-server = https://cloudflare-dns.com/dns-query#proxy,https://dns.google/dns-query#proxy
 direct-dns-server = https://dns.alidns.com/dns-query,https://doh.pub/dns-query
 proxy-dns-server = https://dns.alidns.com/dns-query,https://doh.pub/dns-query
+fallback-dns-server = https://dns.alidns.com/dns-query,https://doh.pub/dns-query
 dns-fallback-system = false
 dns-direct-system = false
 dns-direct-fallback-proxy = true
@@ -109,7 +110,7 @@ FINAL,PROXY,force-remote-dns
 
 - **兜底规则改为远端解析**：`FINAL,PROXY,force-remote-dns`，预解析后仍判国外的域名走代理、远端解析。
 - **未知域名的预解析在代理通道里做**：`dns-server` 的两个国外 DoH 带 `#proxy`，查询经代理发出；`GEOIP,CN,DIRECT` 不带 `no-resolve`，拿到 IP 才按归属分流。两者配对出现，缺一个构建就失败。其余 IP 规则（自托管的规则表镜像，见下）全部带 `no-resolve`，不会顺手把域名解析一遍。
-- **不退回运营商 DNS**：删掉 `fallback-dns-server` 并设 `dns-fallback-system = false`，国内加密 DNS 全挂了也不会悄悄换成明文的运营商 DNS。
+- **不退回运营商 DNS**：`fallback-dns-server` 写明国内双 DoH，并设 `dns-fallback-system = false`；主查询失败时回落到加密的国内 DNS，不会悄悄换成明文的运营商 DNS。
 - **关闭 IPv6 解析**：`ipv6 = false`，避免 IPv6 通道绕过分流。
 - **冷门查询类型不外发**：`allow-dns-all = false`，A/AAAA 之外的查询（HTTPS、SVCB、TXT 等）直接返回空值，不转发给国内 DNS，免得境外域名换一种查询类型又在本地留痕。
 - **直连域名的私有地址照常返回**：`private-ip-answer = true`，局域网内的直连域名能正常解析到内网地址。
