@@ -1,8 +1,9 @@
 # SupplementP（代理补集）：代理补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
 # 来源：ACL4SSR ProxyGFWlist/ProxyLite/ProxyMedia + GFWList；双边校验后仅含未被已有判定覆盖的域名规则。
 # 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
-# 条数：48
+# 条数：49
 DOMAIN,api.together.xyz
+DOMAIN-SUFFIX,51papaya.com
 DOMAIN-SUFFIX,adultfriendfinder.com
 DOMAIN-SUFFIX,authorizeddns.net
 DOMAIN-SUFFIX,authorizeddns.org
