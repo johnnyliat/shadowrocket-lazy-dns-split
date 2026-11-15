@@ -446,7 +446,7 @@ def insert_tail_blocks(out, n_a, n_p, a_line, p_line):
     ]
     first_rs = find_idx(out, lambda t: t.startswith("RULE-SET,"), "第一张规则表")
     out[first_rs:first_rs] = [
-        "# ===== 第 4/5 组：上游规则表（原版顺序：代理判定在前、直连判定在后，Global/China 兜底表居尾）=====",
+        "# ===== 第 4/5 组：上游规则表 34 张（原版顺序：代理与直连交错，TikTok/Global/China/Lan 居尾）=====",
     ]
 
 

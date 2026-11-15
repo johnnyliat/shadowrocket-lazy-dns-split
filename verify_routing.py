@@ -13,8 +13,9 @@ build_common，不复用生成器的任何解析代码，只用自己的一套�
      但混搭即失败。
   2) 结构与顺序：手动规则与 custom-rules.txt 一致且位于 [Rule] 最前；
      补集行 A 在 P 之前、P 紧贴 GEOIP 之前；GEOIP 与 FINAL 各一条、
-     FINAL 居末；规则集地址全部自托管、无重复、本地文件齐全；基础版
-     零 REJECT 行，去广告版有去广告组。
+     FINAL 居末；规则集地址全部自托管、无重复、本地文件齐全；规则集
+     引用顺序与冻结序列一致（上游增删/重排/改策略即失败，须人工复核
+     后更新冻结序列）；基础版零 REJECT 行，去广告版有去广告组。
   3) no-resolve 前提：全部 IP 类规则行带精确的 no-resolve 修饰符（独立
      实现的判定），仅成品自己的裸 GEOIP 行可在 #proxy 配对时例外——
      域名裁决引擎"跳过 IP 规则"的前提必须先被证实，否则裁决结论无效。
@@ -384,6 +385,66 @@ ANCHORS = [
 ]
 
 
+# ---------------- 规则集引用顺序（冻结序列，漂移即失败） ----------------
+# 格式: (文件名, 策略)，按 2026-11-15 上游 lazy.conf 的原版顺序冻结：
+# 代理 20 张、直连 10 张、代理 2 张、直连 2 张交错，补集 A/P 居尾。
+# 先命中先赢，顺序即权力等级：两张重叠的表调换位置会直接改成品语义，
+# 而生成器只按上游顺序原样引用——上游一旦重排，构建会静默采用。本序
+# 列是独立验证器的第二道锁：上游增删/重排/改策略都会使本检查失败，构
+# 建停发，等人工复核确认新顺序无误后，才可更新本序列（同步更新 README
+# 分流顺序表与成品头注释的顺序措辞，三处须一致）。
+EXPECTED_RULESET_SEQUENCE = [
+    ("AI.list", "PROXY"),
+    ("YouTube.list", "PROXY"),
+    ("Netflix.list", "PROXY"),
+    ("Disney.list", "PROXY"),
+    ("HBO.list", "PROXY"),
+    ("Spotify.list", "PROXY"),
+    ("Telegram.list", "PROXY"),
+    ("PayPal.list", "PROXY"),
+    ("Twitter.list", "PROXY"),
+    ("Facebook.list", "PROXY"),
+    ("Amazon.list", "PROXY"),
+    ("Sony.list", "PROXY"),
+    ("Nintendo.list", "PROXY"),
+    ("Epic.list", "PROXY"),
+    ("SteamCN.list", "PROXY"),
+    ("Steam.list", "PROXY"),
+    ("Game.list", "PROXY"),
+    ("GitHub.list", "PROXY"),
+    ("Microsoft.list", "PROXY"),
+    ("Google.list", "PROXY"),
+    ("Apple.list", "DIRECT"),
+    ("BiliBili.list", "DIRECT"),
+    ("NetEaseMusic.list", "DIRECT"),
+    ("Baidu.list", "DIRECT"),
+    ("DouBan.list", "DIRECT"),
+    ("WeChat.list", "DIRECT"),
+    ("Sina.list", "DIRECT"),
+    ("Zhihu.list", "DIRECT"),
+    ("XiaoHongShu.list", "DIRECT"),
+    ("DouYin.list", "DIRECT"),
+    ("TikTok.list", "PROXY"),
+    ("Global.list", "PROXY"),
+    ("China.list", "DIRECT"),
+    ("Lan.list", "DIRECT"),
+    ("SupplementA.list", "DIRECT"),
+    ("SupplementP.list", "PROXY"),
+]
+
+
+def ruleset_sequence(rule_lines):
+    """按出现顺序提取 [Rule] 内全部规则集引用：[(文件名, 策略)]。"""
+    seq = []
+    for s in rule_lines:
+        if s.startswith(("RULE-SET,", "DOMAIN-SET,")):
+            parts = s.split(",")
+            check(len(parts) >= 3, f"规则集行格式不对: {s!r}")
+            seq.append((os.path.basename(parts[1].strip()),
+                        parts[2].strip().upper()))
+    return seq
+
+
 def load_custom_rules_expected():
     """独立解析 custom-rules.txt，返回渲染后的规则行（与成品内嵌形式比对）。"""
     out = []
@@ -465,6 +526,18 @@ def check_order(product, custom_expected, is_ad):
           f"{product.path} A 层补集行不在 P 层之前: {rules[geoip_i - 2]}")
     check(len(product.ruleset_urls) == len(set(product.ruleset_urls)),
           f"{product.path} 规则集引用有重复")
+    seq = ruleset_sequence(rules)
+    if seq != EXPECTED_RULESET_SEQUENCE:
+        diff_i = next((i for i, (a, b) in
+                       enumerate(zip(seq, EXPECTED_RULESET_SEQUENCE))
+                       if a != b),
+                      min(len(seq), len(EXPECTED_RULESET_SEQUENCE)))
+        check(False,
+              f"{product.path} 规则表引用顺序与冻结序列不一致（第 {diff_i + 1} 项起："
+              f"实际 {seq[diff_i:diff_i + 3]}，冻结 "
+              f"{EXPECTED_RULESET_SEQUENCE[diff_i:diff_i + 3]}；共 {len(seq)} 项，"
+              f"冻结 {len(EXPECTED_RULESET_SEQUENCE)} 项）——上游增删/重排/改策略"
+              "须人工复核后更新冻结序列")
     rejects = [l for l in rules if l.endswith(",REJECT") or l.endswith(",REJECT,no-resolve")]
     if is_ad:
         check(len(rejects) > 50000, f"{product.path} 去广告规则数异常: {len(rejects)}")

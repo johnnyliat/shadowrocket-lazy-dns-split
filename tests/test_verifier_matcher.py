@@ -1,7 +1,7 @@
 """独立验证引擎单元测试：在微型成品上验证裁决语义。
 
 覆盖：精确/后缀/关键字/通配的首命中顺序、GEOIP 裸与带守卫两种模式、
-FINAL 兜底、no-resolve 前提判定、DNS 联动锁。真实成品的回归由 CI 里
+FINAL 兜底、no-resolve 前提判定、DNS 联动锁、规则集引用顺序冻结。真实成品的回归由 CI 里
 verify_routing.py 的全量运行与固定样本覆盖。
 """
 import os
@@ -201,6 +201,80 @@ class TestDnsInterlock(VerifierFixture):
         p = vr.Product(self.write_product(vr.DUAL_DOH, "GEOIP,CN,DIRECT"))
         with self.assertRaises(vr.VerifyError):
             vr.check_dns(p)
+
+
+class TestRulesetOrderFrozen(VerifierFixture):
+    """规则集引用顺序冻结：生成器按上游顺序原样引用，上游重排会静默
+    采用；冻结序列是独立验证器的第二道锁。真实成品的顺序回归由 CI 里
+    verify_routing.py 的全量运行覆盖。"""
+
+    CUSTOM = ["DOMAIN-SUFFIX,manual.example,DIRECT"]
+
+    def _product_with(self, seq):
+        for i, (name, _pol) in enumerate(seq):
+            self._write(f"rules/{name}", f"DOMAIN-SUFFIX,t{i}.example\n")
+        lines = ["[Rule]"] + self.CUSTOM
+        lines += [f"RULE-SET,{SELF}rules/{name},{pol}" for name, pol in seq]
+        lines += ["GEOIP,CN,DIRECT", "FINAL,PROXY,force-remote-dns"]
+        path = os.path.join(self.tmp.name, "order.conf")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        return vr.Product(path)
+
+    def test_frozen_sequence_shape(self):
+        seq = vr.EXPECTED_RULESET_SEQUENCE
+        self.assertEqual(len(seq), 36)
+        names = [n for n, _ in seq]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertEqual(seq[0], ("AI.list", "PROXY"))
+        self.assertEqual(seq[-2:], [("SupplementA.list", "DIRECT"),
+                                    ("SupplementP.list", "PROXY")])
+        runs = []
+        for _, pol in seq:
+            if runs and runs[-1][0] == pol:
+                runs[-1][1] += 1
+            else:
+                runs.append([pol, 1])
+        self.assertEqual([(p, n) for p, n in runs],
+                         [("PROXY", 20), ("DIRECT", 10), ("PROXY", 2),
+                          ("DIRECT", 3), ("PROXY", 1)])
+
+    def test_current_order_passes(self):
+        p = self._product_with(vr.EXPECTED_RULESET_SEQUENCE)
+        vr.check_order(p, self.CUSTOM, is_ad=False)  # 不抛错即通过
+
+    def test_swap_fails(self):
+        seq = list(vr.EXPECTED_RULESET_SEQUENCE)
+        seq[0], seq[1] = seq[1], seq[0]
+        with self.assertRaises(vr.VerifyError):
+            vr.check_order(self._product_with(seq), self.CUSTOM, is_ad=False)
+
+    def test_drop_fails(self):
+        seq = list(vr.EXPECTED_RULESET_SEQUENCE)
+        del seq[25]
+        with self.assertRaises(vr.VerifyError):
+            vr.check_order(self._product_with(seq), self.CUSTOM, is_ad=False)
+
+    def test_policy_flip_fails(self):
+        seq = list(vr.EXPECTED_RULESET_SEQUENCE)
+        name, _pol = seq[20]
+        seq[20] = (name, "PROXY")
+        with self.assertRaises(vr.VerifyError):
+            vr.check_order(self._product_with(seq), self.CUSTOM, is_ad=False)
+
+    def test_extra_fails(self):
+        seq = list(vr.EXPECTED_RULESET_SEQUENCE)
+        seq.append(("Extra.list", "PROXY"))
+        with self.assertRaises(vr.VerifyError):
+            vr.check_order(self._product_with(seq), self.CUSTOM, is_ad=False)
+
+    def test_ruleset_sequence_extraction(self):
+        lines = ["DOMAIN-SUFFIX,manual.example,DIRECT",
+                 f"RULE-SET,{SELF}rules/A.list,PROXY",
+                 f"DOMAIN-SET,{SELF}rules/B.list,DIRECT",
+                 "GEOIP,CN,DIRECT"]
+        self.assertEqual(vr.ruleset_sequence(lines),
+                         [("A.list", "PROXY"), ("B.list", "DIRECT")])
 
 
 if __name__ == "__main__":

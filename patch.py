@@ -22,8 +22,8 @@
     1B 手动代理（custom-rules.txt 的 PROXY 规则）
     2  去广告（仅去广告版，本文件无此组）
     3  上游本地规则（原文件 [Rule] 里的字面规则，如 3 条 PROXY）
-    4  代理规则表（上游 RULE-SET，原版顺序）
-    5  直连规则表（上游 RULE-SET，原版顺序，Global/China 兜底表居尾）
+    4/5  上游规则表 34 张（上游 RULE-SET，原版顺序：代理 20、直连 10、
+       代理 2、直连 2 交错，TikTok/Global/China/Lan 居尾）
     6  A 层补集 RULE-SET（SupplementA.list，常用直连补集）
     7  P 层补集 RULE-SET（SupplementP.list，代理补集；排在直连判定之后、
        GEOIP 之前，外国服务即使解析出国内 IP 也走代理）
@@ -157,7 +157,7 @@ def main(src_path, out_path, dns_mode):
         "# 补丁: 仅 DNS 机制与规则排序，均以注释标出；名单内容与上游逐字一致。\n"
         "# 排序（先命中先赢，共九组，组内上游相对顺序不动）:\n"
         "#   1A 手动直连 / 1B 手动代理（custom-rules.txt，权力最高）\n"
-        "#   3 上游本地规则；4 代理规则表；5 直连规则表；\n"
+        "#   3 上游本地规则；4/5 上游规则表 34 张（原版顺序，代理与直连交错）；\n"
         f"#   6 A 层补集（{n_a} 条常用直连）；7 P 层补集（{n_p} 条代理）；8 GEOIP,CN；9 FINAL,PROXY,force-remote-dns。\n"
         f"# 补集由 compile_supplement.py 每日编译（A 层：v2fly data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect，有代理证据的一律不补；P 层：ACL4SSR 代理表 + GFWList，已被已有判定覆盖的一律不补）。\n"
         "# 手动: 仓库根目录 custom-rules.txt 的自定义直连/代理规则，分 1A/1B 两组内嵌于 [Rule] 最前面；\n"

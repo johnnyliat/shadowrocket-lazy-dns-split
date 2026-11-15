@@ -11,7 +11,7 @@
      上游规则之前）:
        1A 手动直连 / 1B 手动代理（custom-rules.txt，权力最高）
        2  去广告规则（sr_ad_only 全量内嵌 + DuskWander87 去广告补充，REJECT）
-       3  上游本地规则；4 代理规则表；5 直连规则表；
+       3  上游本地规则；4/5 上游规则表 34 张（原版顺序，代理与直连交错）；
        6  A 层补集；7 P 层补集；8 GEOIP,CN；9 FINAL,PROXY,force-remote-dns
      注意: 不能用 RULE-SET 引用 sr_ad_only —— 它每行带策略且自带 [Rule]
      段头，引用必错，只能内嵌。
@@ -47,11 +47,32 @@ from build_common import (
     insert_tail_blocks,
     load_custom_rules,
     load_mirrors,
+    validate_domain_value,
 )
 
 build_common.set_fail_prefix("PATCH FAILED")
 
 AD_LINE = re.compile(r"^(DOMAIN-SUFFIX|IP-CIDR),([^,]+),Reject$")
+
+
+def validate_ad_value(typ, val, raw):
+    """单条去广告规则值校验，返回规范化后的成品规则行；不合法即 fail。
+
+    域名值须为含点号的小写合法域名：单标签值（如 com）会拦截整个顶级
+    域，与补集/手动规则等其他域名入口的校验口径一致（validate_domain_value
+    本身允许单标签，故此处另加含点号要求）；大写统一转小写（DNS 不区分
+    大小写，规范化后语义不变）。IP 段沿用既有 ipaddress 校验。
+    """
+    if typ == "IP-CIDR":
+        try:
+            ipaddress.ip_network(val, strict=False)
+        except ValueError:
+            fail(f"sr_ad_only 的 IP 段不合法: {raw!r}")
+        return f"{typ},{val},REJECT,no-resolve"
+    v = val.lower()
+    if "." not in v or not validate_domain_value(v):
+        fail(f"sr_ad_only 的域名值不合法（须为含点号的合法域名）: {raw!r}")
+    return f"{typ},{v},REJECT"
 
 
 def load_ad_rules(path):
@@ -67,14 +88,7 @@ def load_ad_rules(path):
         if not m:
             fail(f"sr_ad_only 出现未预期的规则行格式: {s!r}")
         typ, val = m.groups()
-        if typ == "IP-CIDR":
-            try:
-                ipaddress.ip_network(val, strict=False)
-            except ValueError:
-                fail(f"sr_ad_only 的 IP 段不合法: {s!r}")
-            rules.append(f"{typ},{val},REJECT,no-resolve")
-        else:
-            rules.append(f"{typ},{val},REJECT")
+        rules.append(validate_ad_value(typ, val, s))
     if len(rules) < 50000:
         fail(f"去广告规则数异常: {len(rules)}（预期 5 万以上，上游可能不完整）")
     # 上游本身带有少量重复行（其合并多张表所致），按首次出现顺序去重，功能等价
@@ -248,7 +262,7 @@ def main(lazy_path, ad_path, out_path, dns_mode):
         "#       DNS 仅改机制、规则仅改排序（均以注释标出），名单内容与上游逐字一致。\n"
         "# 排序（先命中先赢，共九组，组内上游相对顺序不动）:\n"
         "#   1A 手动直连 / 1B 手动代理（custom-rules.txt，权力最高）；2 去广告；3 上游本地规则；\n"
-        "#   4 代理规则表；5 直连规则表；\n"
+        "#   4/5 上游规则表 34 张（原版顺序，代理与直连交错）；\n"
         f"#   6 A 层补集（{n_a} 条常用直连）；7 P 层补集（{n_p} 条代理）；8 GEOIP,CN；9 FINAL,PROXY,force-remote-dns。\n"
         f"# 补集由 compile_supplement.py 每日编译（A 层：v2fly data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect，有代理证据的一律不补；P 层：ACL4SSR 代理表 + GFWList，已被已有判定覆盖的一律不补；去广告补充：DuskWander87 Reject.list）。\n"
         + dns_note +
