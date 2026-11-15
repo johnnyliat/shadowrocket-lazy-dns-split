@@ -13,18 +13,18 @@
       "sha256": "f40d19e6466305c83b8121c794839512050d27e581e5180535669a5ef7fcfc34"
     },
     "sr_ad_only.conf": {
-      "lines": 53260,
-      "sha256": "c82d2708f8ffae45994b0ea6ff67454879d58e4efaca2378fe6b35ceedf105f0"
+      "lines": 53610,
+      "sha256": "6728342e17e8b7e413cc44fff22634bfc9c6ada5c31f42d205e6a82a2a338953"
     }
   },
   "products": {
     "lazy-dns-ad.conf": {
-      "lines": 53654,
-      "sha256": "f9d99cf55cfe5790f4c4c8fc7431aba93944aed180f473f1478a418a885d47df"
+      "lines": 54004,
+      "sha256": "ec8f536ddb2de46861974b55e0b1d743e136b58f6a34b86cb6c7b394a3658a7b"
     },
     "lazy-dns.conf": {
       "lines": 439,
-      "sha256": "31f9ded58ea02703dacf6b9d24673952689b0dbe3aabf98b28ff3accd3da4ba8"
+      "sha256": "3031ff1ff1c6f208da6df000cba8a37ff97eb458e35884f6826f748e053e985e"
     }
   },
   "rules": {
@@ -137,8 +137,8 @@
       "sha256": "4f3600150f9fbad1012cf5dc1df01f4f9ddc92447b4a549bbf6d9d58af3398e8"
     },
     "SupplementA.list": {
-      "lines": 3094,
-      "sha256": "b715a80d6866019cae3ef20fc2b5ab0912706f76f6f4cd7071d22ff86b53c413"
+      "lines": 3095,
+      "sha256": "96b1626d08e61fd65d9dbc5100721e9a11a0dbac64baa8b71021bf72ef2f520a"
     },
     "SupplementAd.list": {
       "lines": 19,
