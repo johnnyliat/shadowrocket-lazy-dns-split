@@ -20,11 +20,11 @@
   "products": {
     "lazy-dns-ad.conf": {
       "lines": 54004,
-      "sha256": "ec8f536ddb2de46861974b55e0b1d743e136b58f6a34b86cb6c7b394a3658a7b"
+      "sha256": "7adb72be22cf0c10547bf8d00bcfc78cf94bd62086bd11acf1d0c843ae9e0abd"
     },
     "lazy-dns.conf": {
       "lines": 439,
-      "sha256": "3031ff1ff1c6f208da6df000cba8a37ff97eb458e35884f6826f748e053e985e"
+      "sha256": "a5d9f03c92733917c0a1f79c666389da3adf3cec82b0aa8891e7595efbba9bb7"
     }
   },
   "rules": {
@@ -180,7 +180,7 @@
   "scripts": {
     "build_common.py": {
       "lines": 513,
-      "sha256": "59beecfd8a236e73cb350f32db90a6530249fde0f579a0993e21349a3e2800f8"
+      "sha256": "e7eb2dd32a72d5733541c0a1283b24f342db752a01a31ac0cc8c9cc689f994a0"
     },
     "build_manifest.py": {
       "lines": 88,
@@ -196,19 +196,19 @@
     },
     "patch.py": {
       "lines": 186,
-      "sha256": "ee7b67c90efde9d95b0da776b32dbe669cfc2554206b4cdcb730e37fe21edd65"
+      "sha256": "617bfdaf35c380913f22b03c744b9a83daa5c2a34552ef85d2101a3f3711b93f"
     },
     "patch_ad.py": {
-      "lines": 273,
-      "sha256": "9545270e5271473134918d81198e0dd6bf8d7362345e02f22c5dab0b4025fa33"
+      "lines": 287,
+      "sha256": "7fe319f8ebbb0befe9e7bc3a53a1f54ae520b1105555c304f89d84e477254814"
     },
     "patch_lists.py": {
       "lines": 153,
       "sha256": "93bb7cf00cb2eb099742e5a7f10f578a62120a790be773e6fe516820a41e661b"
     },
     "verify_routing.py": {
-      "lines": 599,
-      "sha256": "776ce81134f5a5382cc6002bbd76357b285359a27055ec9173ccbbc9cc27fba9"
+      "lines": 672,
+      "sha256": "af1c46cb3f91293f13fc0e683662c60c381d94857faaf9c607a4477da9b3b544"
     }
   },
   "tests": {
@@ -220,6 +220,10 @@
       "lines": 54,
       "sha256": "4883253875eccb126b575575fb2f0de5551ce2601928869c214fe71f26cdc863"
     },
+    "test_patch_ad.py": {
+      "lines": 71,
+      "sha256": "7eaa36a7efbd63bc9b6bc937e01e833ee3404e9619149d93a68855f358ce6494"
+    },
     "test_patch_lists.py": {
       "lines": 139,
       "sha256": "55dc349a973487cd31345d5ad403402d533dc46f1ba241ca74a8ec9beab7e49c"
@@ -229,8 +233,8 @@
       "sha256": "5703adf713c95a34c76ff5ea272c15a58241d5f97705d5a79ec5afd0790fca6f"
     },
     "test_verifier_matcher.py": {
-      "lines": 207,
-      "sha256": "8b3d1a9240829d0a50404cb14935246c16eeff41594dfd493abd232e237e15df"
+      "lines": 281,
+      "sha256": "0be10cc5f3541a9f599fc1ce48cebecab0197e608b576b2d7b93bc0f3d618e29"
     }
   },
   "version": 1,
