@@ -1,7 +1,7 @@
 # SupplementA（常用直连补集）：直连补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
 # 来源：v2fly/domain-list-community data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect；双边校验后仅含未被已有判定覆盖的域名规则。
 # 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
-# 条数：3091
+# 条数：3103
 DOMAIN,api.blipsandchitz.me
 DOMAIN,ctdsb.clouddiffuse.xyz
 DOMAIN,end-api.shallow.ink
@@ -281,6 +281,7 @@ DOMAIN-SUFFIX,appracle.com
 DOMAIN-SUFFIX,appsimg.com
 DOMAIN-SUFFIX,appvipshop.com
 DOMAIN-SUFFIX,arco.design
+DOMAIN-SUFFIX,arknights.com
 DOMAIN-SUFFIX,askci.com
 DOMAIN-SUFFIX,askdiandian.com
 DOMAIN-SUFFIX,asklib.com
@@ -1149,6 +1150,8 @@ DOMAIN-SUFFIX,gootho.com
 DOMAIN-SUFFIX,gosinoic.com
 DOMAIN-SUFFIX,gpall.net
 DOMAIN-SUFFIX,greeyun.com
+DOMAIN-SUFFIX,gryphline.com
+DOMAIN-SUFFIX,gryphline.net
 DOMAIN-SUFFIX,gseen.com
 DOMAIN-SUFFIX,gslbdns.com
 DOMAIN-SUFFIX,gslbdns.net
@@ -1215,6 +1218,8 @@ DOMAIN-SUFFIX,heweather.net
 DOMAIN-SUFFIX,hezuvip.com
 DOMAIN-SUFFIX,hf-aw.com
 DOMAIN-SUFFIX,hfx.net
+DOMAIN-SUFFIX,hg-cdn.com
+DOMAIN-SUFFIX,hgto.cc
 DOMAIN-SUFFIX,hiaiabc.com
 DOMAIN-SUFFIX,hifuntv.com
 DOMAIN-SUFFIX,higgsweb.com
@@ -1303,9 +1308,12 @@ DOMAIN-SUFFIX,hwwt8.com
 DOMAIN-SUFFIX,hwzuku.com
 DOMAIN-SUFFIX,hxnews.com
 DOMAIN-SUFFIX,hybiome.com
+DOMAIN-SUFFIX,hycdn.com
 DOMAIN-SUFFIX,hydun.com
 DOMAIN-SUFFIX,hypercachenet.com
 DOMAIN-SUFFIX,hypercachenode.com
+DOMAIN-SUFFIX,hypergryph.com
+DOMAIN-SUFFIX,hypergryph.net
 DOMAIN-SUFFIX,hzchengdun.com
 DOMAIN-SUFFIX,hzchengdun.net
 DOMAIN-SUFFIX,hzdtv.tv
@@ -1939,6 +1947,7 @@ DOMAIN-SUFFIX,obriccloud.com
 DOMAIN-SUFFIX,obricclouddw.com
 DOMAIN-SUFFIX,oceancloudapi.com
 DOMAIN-SUFFIX,oceanengine.com
+DOMAIN-SUFFIX,octavedge.com
 DOMAIN-SUFFIX,oend.net
 DOMAIN-SUFFIX,ofweek.com
 DOMAIN-SUFFIX,okjike.com
@@ -2211,6 +2220,9 @@ DOMAIN-SUFFIX,sipeed.com
 DOMAIN-SUFFIX,sjfls6.com
 DOMAIN-SUFFIX,sjxydc.com
 DOMAIN-SUFFIX,skimit.net
+DOMAIN-SUFFIX,skland.com
+DOMAIN-SUFFIX,skland.net
+DOMAIN-SUFFIX,skport.com
 DOMAIN-SUFFIX,sksight.com
 DOMAIN-SUFFIX,skypixel.com
 DOMAIN-SUFFIX,skyworth.com
