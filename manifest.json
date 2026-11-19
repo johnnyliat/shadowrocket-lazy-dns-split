@@ -13,24 +13,24 @@
       "sha256": "f40d19e6466305c83b8121c794839512050d27e581e5180535669a5ef7fcfc34"
     },
     "sr_ad_only.conf": {
-      "lines": 52879,
-      "sha256": "5cbae5277054d271c776b0acbd3e6afa3d67ab83477cd7f4f3a96cbb773048c7"
+      "lines": 53246,
+      "sha256": "bcc4339624fc19e6a805231a633b46e7b09ab3cee627d064990a8f7a35978047"
     }
   },
   "products": {
     "lazy-dns-ad.conf": {
-      "lines": 53273,
-      "sha256": "bf7ea2c18acca2b5fcad601c23c711ca01ac3e31f327faaef86e170dadd42069"
+      "lines": 53640,
+      "sha256": "c055e2dd358b4723c5f99f234498a49ee7bcf35c3ecf2049c1387217f763828c"
     },
     "lazy-dns.conf": {
       "lines": 439,
-      "sha256": "3a3e8d321fb5ba02832ae030b3ee788469fa3d21277d7a11d94aa9c0dc9d4ce4"
+      "sha256": "fe491a2cef3bcb70ec949f9ffd3eb49ddaee48fd014298d86c05321d75bc0fa5"
     }
   },
   "rules": {
     "AI.list": {
-      "lines": 99,
-      "sha256": "a8cdda4982d0a68ec3380e315f39135fe3cc8325f05b9cfc3a9e97b9cd6a9f8f"
+      "lines": 109,
+      "sha256": "b5588eab8efde217ae8e39c477a4e7eb54344c0e7378b5726c06fa3b62857ec7"
     },
     "Amazon.list": {
       "lines": 217,
@@ -137,8 +137,8 @@
       "sha256": "4f3600150f9fbad1012cf5dc1df01f4f9ddc92447b4a549bbf6d9d58af3398e8"
     },
     "SupplementA.list": {
-      "lines": 3107,
-      "sha256": "23aafdc2d64efdf6ca5129d6382196281d776d9e9bd393951b57f9a81ef88883"
+      "lines": 3126,
+      "sha256": "2837c0c0f5223185583956078a4473f5f80a51ecc987631ffaab2fcafa1e3d20"
     },
     "SupplementAd.list": {
       "lines": 19,
