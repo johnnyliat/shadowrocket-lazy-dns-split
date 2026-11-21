@@ -1,7 +1,7 @@
 # SupplementA（常用直连补集）：直连补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
 # 来源：v2fly/domain-list-community data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect；双边校验后仅含未被已有判定覆盖的域名规则。
 # 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
-# 条数：3122
+# 条数：3126
 DOMAIN,api.blipsandchitz.me
 DOMAIN,ctdsb.clouddiffuse.xyz
 DOMAIN,end-api.shallow.ink
@@ -913,6 +913,7 @@ DOMAIN-SUFFIX,easyliao.com
 DOMAIN-SUFFIX,easytomessage.com
 DOMAIN-SUFFIX,eceshi.com
 DOMAIN-SUFFIX,echargenet.com
+DOMAIN-SUFFIX,echooai.com
 DOMAIN-SUFFIX,eckwai.com
 DOMAIN-SUFFIX,ecombdimg.com
 DOMAIN-SUFFIX,ecombdpage.com
@@ -980,7 +981,9 @@ DOMAIN-SUFFIX,fanxingliveshow.com
 DOMAIN-SUFFIX,favonis.cloud
 DOMAIN-SUFFIX,favonis.com
 DOMAIN-SUFFIX,favonis.space
+DOMAIN-SUFFIX,faw-vw.com
 DOMAIN-SUFFIX,faxingbao.com
+DOMAIN-SUFFIX,fazhipro.com
 DOMAIN-SUFFIX,fcapp.run
 DOMAIN-SUFFIX,fcbox.com
 DOMAIN-SUFFIX,fcboxmall.com
@@ -2141,6 +2144,7 @@ DOMAIN-SUFFIX,runningcheese.com
 DOMAIN-SUFFIX,ruseer.com
 DOMAIN-SUFFIX,ruubypay.com
 DOMAIN-SUFFIX,rwkv.com
+DOMAIN-SUFFIX,saasfz.com
 DOMAIN-SUFFIX,saduck.top
 DOMAIN-SUFFIX,safewk.com
 DOMAIN-SUFFIX,saicmobility.com
