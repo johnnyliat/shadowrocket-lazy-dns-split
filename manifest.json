@@ -13,18 +13,18 @@
       "sha256": "f40d19e6466305c83b8121c794839512050d27e581e5180535669a5ef7fcfc34"
     },
     "sr_ad_only.conf": {
-      "lines": 53939,
-      "sha256": "f9a01bf0143d5747b58c34da256b1d22118500d69b14964147ade90ffcfc5806"
+      "lines": 53990,
+      "sha256": "597f6faa8ed67e2f6f44c7d33b47b8b0534018dacb9a02de8f8aa026abc3f70a"
     }
   },
   "products": {
     "lazy-dns-ad.conf": {
-      "lines": 54333,
-      "sha256": "8ed215e6819dde10f6271d2b1b4672b7105bc250bd2379a2be93cbb3abeef817"
+      "lines": 54384,
+      "sha256": "3410b9714167ccbc43c5a0185b2a78a3e02360b39ee24be63bcf7737525750cd"
     },
     "lazy-dns.conf": {
       "lines": 439,
-      "sha256": "c1d0f9426581ae43852442749751a5a15e1c3bb2962221b3e5b273a937cdf931"
+      "sha256": "616f774a2a723865dd1e0126e4c6dd240619182e9a84b194b7a9f406bec2c25d"
     }
   },
   "rules": {
@@ -137,16 +137,16 @@
       "sha256": "4f3600150f9fbad1012cf5dc1df01f4f9ddc92447b4a549bbf6d9d58af3398e8"
     },
     "SupplementA.list": {
-      "lines": 3130,
-      "sha256": "22b9caea48e44663cdc44af2f4a7ac1622e11752b0db13e1cd7977f23da3c1f1"
+      "lines": 3131,
+      "sha256": "4e9545179c17b7dc0825f543cc31151e592625d1948601960bb4a440b45e566e"
     },
     "SupplementAd.list": {
       "lines": 19,
       "sha256": "485f4b68db20198cedb90a6cb4647594248d6d6380145e6081e95b2e14439123"
     },
     "SupplementP.list": {
-      "lines": 72,
-      "sha256": "df7cdbe2140f4522a503fddf83c08f2cfbfbfd8914204ce8318c9859ac2a48fb"
+      "lines": 84,
+      "sha256": "65fa87516a977b9553f7c9dab4c228770214b12e935c55c96ac3696875ec02a1"
     },
     "Telegram.list": {
       "lines": 51,

@@ -1,10 +1,12 @@
 # SupplementP（代理补集）：代理补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
 # 来源：ACL4SSR ProxyGFWlist/ProxyLite/ProxyMedia + GFWList；双边校验后仅含未被已有判定覆盖的域名规则。
 # 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
-# 条数：68
+# 条数：80
 DOMAIN,api.together.xyz
 DOMAIN-SUFFIX,51papaya.com
 DOMAIN-SUFFIX,adultfriendfinder.com
+DOMAIN-SUFFIX,af.edu
+DOMAIN-SUFFIX,appsflyersdk.com
 DOMAIN-SUFFIX,authorizeddns.net
 DOMAIN-SUFFIX,authorizeddns.org
 DOMAIN-SUFFIX,authorizeddns.us
@@ -13,6 +15,7 @@ DOMAIN-SUFFIX,bsky.chat
 DOMAIN-SUFFIX,client-api.arkoselabs.com
 DOMAIN-SUFFIX,cmoney.tw
 DOMAIN-SUFFIX,dafahao.com
+DOMAIN-SUFFIX,dappcdn.com
 DOMAIN-SUFFIX,ddns.info
 DOMAIN-SUFFIX,ddns.me.uk
 DOMAIN-SUFFIX,ddns.mobi
@@ -31,6 +34,7 @@ DOMAIN-SUFFIX,hjholdings.jp
 DOMAIN-SUFFIX,hkcitycreation.com
 DOMAIN-SUFFIX,hkcourtnews.com
 DOMAIN-SUFFIX,hkfeature.com
+DOMAIN-SUFFIX,hysteria.network
 DOMAIN-SUFFIX,japonx.com
 DOMAIN-SUFFIX,japonx.net
 DOMAIN-SUFFIX,japonx.tv
@@ -40,18 +44,24 @@ DOMAIN-SUFFIX,japronx.net
 DOMAIN-SUFFIX,japronx.tv
 DOMAIN-SUFFIX,japronx.vip
 DOMAIN-SUFFIX,joox.com
+DOMAIN-SUFFIX,jspm.io
 DOMAIN-SUFFIX,lifesitenews.com
 DOMAIN-SUFFIX,master-insight.com
 DOMAIN-SUFFIX,moneynet.com.tw
+DOMAIN-SUFFIX,moomoobull.com
 DOMAIN-SUFFIX,my-formosa.com.tw
 DOMAIN-SUFFIX,myddns.com
 DOMAIN-SUFFIX,newrelic.com
 DOMAIN-SUFFIX,ntdtv.org
-DOMAIN-SUFFIX,page.tl
+DOMAIN-SUFFIX,nxtrace.org
+DOMAIN-SUFFIX,openstreetmap.fr
+DOMAIN-SUFFIX,play-analytics.com
 DOMAIN-SUFFIX,prod.hjholdings.tv
 DOMAIN-SUFFIX,pulsehknews.com
+DOMAIN-SUFFIX,redteago.com
 DOMAIN-SUFFIX,sentry.io
 DOMAIN-SUFFIX,shanghainationalparty.com
+DOMAIN-SUFFIX,shuaiapi.com
 DOMAIN-SUFFIX,soulogic.com
 DOMAIN-SUFFIX,steamladder.com
 DOMAIN-SUFFIX,streaks.jp
@@ -61,9 +71,11 @@ DOMAIN-SUFFIX,theonlinecitizen.com
 DOMAIN-SUFFIX,thestar.com
 DOMAIN-SUFFIX,thewitnesshk.com
 DOMAIN-SUFFIX,torrentleech.org
+DOMAIN-SUFFIX,tritondigital.com
 DOMAIN-SUFFIX,twitch-ext.rootonline.de
 DOMAIN-SUFFIX,ubddns.org
 DOMAIN-SUFFIX,unblock.cn.com
+DOMAIN-SUFFIX,unun.dev
 DOMAIN-SUFFIX,wiki.cnitter.com
 DOMAIN-SUFFIX,womany.net
 DOMAIN-SUFFIX,yb.uncn.jp
