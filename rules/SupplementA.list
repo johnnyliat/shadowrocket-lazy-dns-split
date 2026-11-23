@@ -1,7 +1,7 @@
 # SupplementA（常用直连补集）：直连补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
 # 来源：v2fly/domain-list-community data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect；双边校验后仅含未被已有判定覆盖的域名规则。
 # 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
-# 条数：3127
+# 条数：3131
 DOMAIN,api.blipsandchitz.me
 DOMAIN,ctdsb.clouddiffuse.xyz
 DOMAIN,end-api.shallow.ink
@@ -640,6 +640,7 @@ DOMAIN-SUFFIX,chuangcache.com
 DOMAIN-SUFFIX,chuangcdn.com
 DOMAIN-SUFFIX,chuapp.com
 DOMAIN-SUFFIX,chujingapp.com
+DOMAIN-SUFFIX,chunithm.wahlap.com
 DOMAIN-SUFFIX,chunyuyisheng.com
 DOMAIN-SUFFIX,chushi.cool
 DOMAIN-SUFFIX,cibn.cc
@@ -1773,6 +1774,7 @@ DOMAIN-SUFFIX,lzpipi.com
 DOMAIN-SUFFIX,m1905.com
 DOMAIN-SUFFIX,made-in-china.com
 DOMAIN-SUFFIX,maiche.com
+DOMAIN-SUFFIX,maimai.wahlap.com
 DOMAIN-SUFFIX,maimemo.com
 DOMAIN-SUFFIX,maimemostatus.com
 DOMAIN-SUFFIX,maindown4399.com
@@ -2383,6 +2385,7 @@ DOMAIN-SUFFIX,tetrisone.com
 DOMAIN-SUFFIX,tfcaijing.com
 DOMAIN-SUFFIX,tfogc.com
 DOMAIN-SUFFIX,tggfl.com
+DOMAIN-SUFFIX,tgk-wcaime.wahlap.com
 DOMAIN-SUFFIX,tgpro.top
 DOMAIN-SUFFIX,tgprocs.net
 DOMAIN-SUFFIX,th-music.com
@@ -2703,6 +2706,7 @@ DOMAIN-SUFFIX,vsread.com
 DOMAIN-SUFFIX,vtdd.vip
 DOMAIN-SUFFIX,vvstc.com
 DOMAIN-SUFFIX,vxhcm.com
+DOMAIN-SUFFIX,wahlap.net
 DOMAIN-SUFFIX,waifushangcheng.com
 DOMAIN-SUFFIX,wali.com
 DOMAIN-SUFFIX,wangniuwms.com
