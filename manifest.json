@@ -13,14 +13,14 @@
       "sha256": "f40d19e6466305c83b8121c794839512050d27e581e5180535669a5ef7fcfc34"
     },
     "sr_ad_only.conf": {
-      "lines": 52715,
-      "sha256": "55f9e7c213fa145391d371b54d759880a2d365e16e5097e580d30f9a8cd96d5f"
+      "lines": 52946,
+      "sha256": "751c9987713a29cce281ff2be1dfc6bc074b37670e0e5adda6a0ffb7ff37a80a"
     }
   },
   "products": {
     "lazy-dns-ad.conf": {
-      "lines": 53109,
-      "sha256": "86971695fdb6a6db4919b06d49332aab29a66421d22881fc4e6ff91553d942fa"
+      "lines": 53340,
+      "sha256": "c3ff098679c910d225c90c7854312ce4172c530eb305cf900c08f8ed36ae6c19"
     },
     "lazy-dns.conf": {
       "lines": 439,
@@ -240,8 +240,8 @@
   "version": 1,
   "workflows": {
     "health.yml": {
-      "lines": 87,
-      "sha256": "3bb476d99e17ca3f7e08f8c79c53b8ca628f2c64b002852230311a4721bca89e"
+      "lines": 174,
+      "sha256": "06d57bafbe9ed59d54d2c192853ee835a3cf239045f1ebf5c9538256ddf53cac"
     },
     "sync.yml": {
       "lines": 96,
