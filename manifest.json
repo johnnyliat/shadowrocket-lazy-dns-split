@@ -13,14 +13,14 @@
       "sha256": "f40d19e6466305c83b8121c794839512050d27e581e5180535669a5ef7fcfc34"
     },
     "sr_ad_only.conf": {
-      "lines": 52946,
-      "sha256": "751c9987713a29cce281ff2be1dfc6bc074b37670e0e5adda6a0ffb7ff37a80a"
+      "lines": 53331,
+      "sha256": "f2b0ee6d99d7258176b74274fcff416d239841fa07fdd6f32806b092761985cb"
     }
   },
   "products": {
     "lazy-dns-ad.conf": {
-      "lines": 53340,
-      "sha256": "c3ff098679c910d225c90c7854312ce4172c530eb305cf900c08f8ed36ae6c19"
+      "lines": 53725,
+      "sha256": "9f4a904779aaf6d586e206fc781081940fcddb90453d92693a9859c09c50fd85"
     },
     "lazy-dns.conf": {
       "lines": 439,
