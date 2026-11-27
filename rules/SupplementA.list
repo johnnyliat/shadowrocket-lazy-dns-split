@@ -1,7 +1,7 @@
 # SupplementA（常用直连补集）：直连补集，由 compile_supplement.py 每日编译生成，请勿手动编辑。
 # 来源：v2fly/domain-list-community data/cn + ACL4SSR 精选表 + DuskWander87 ChinaDirect；双边校验后仅含未被已有判定覆盖的域名规则。
 # 格式：Shadowrocket RULE-SET（DOMAIN-SUFFIX / DOMAIN，无策略，策略由成品 RULE-SET 行指定）。
-# 条数：3131
+# 条数：3132
 DOMAIN,api.blipsandchitz.me
 DOMAIN,ctdsb.clouddiffuse.xyz
 DOMAIN,end-api.shallow.ink
@@ -2814,6 +2814,7 @@ DOMAIN-SUFFIX,xiangrikuisite.com
 DOMAIN-SUFFIX,xiankabao.com
 DOMAIN-SUFFIX,xiaoaiassist.com
 DOMAIN-SUFFIX,xiaochuanyun.com
+DOMAIN-SUFFIX,xiaoeknow.com
 DOMAIN-SUFFIX,xiaohuanxiong.com
 DOMAIN-SUFFIX,xiaolachuxing.com
 DOMAIN-SUFFIX,xiaolianhb.com
